@@ -880,6 +880,8 @@ switch what
 
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
         
+        announceTime = 5; % there is a 5 sec interval between instruction onset and task onset.
+        
         %%% SPM and SPM_info files will be saved in glmDir
         switch ppmethod
             case ''
@@ -940,7 +942,8 @@ switch what
             
             % loop through runs
             for r = runLst
-                S.run = r;
+                S.run  = r;
+                S.sess = sess(r);
                 % get the task data for the run
                 P = getrow(A,A.runNum == runTrue(r));
                 
@@ -960,28 +963,118 @@ switch what
                     ST = find(strcmp(P.taskName,Tasks{it}));
                     for taskType = 1:2 % there are two taskTypes: instruction; not instructions
                         if taskType == 1 % instructions
+                            % get the isntruction onset
+                            instruct_onset = P.realStartTime(ST)- J.timing.RT*numDummys; %% get the instruction start time for the first task 
                             
                             % filling in the fields for SPM_info.mat
-                            S.task      = 0;          % task Number
-                            S.TN        = 'Instruct'; % task name (TN)
-                            S.inst      = 1;
-                            S.instOrder = ST;
+                            S.deriv     = 0;              % deriv is used to identify the derivative regressors
+                            S.task      = 0;              % task Number
+                            S.TN        = 'Instruct';     % task name (TN)
+                            S.inst      = 1;              % is it instruction (1) or not (0)?
+                            S.instOrder = ST;             % instOrder is defined by the task that comes after the instruction
+                            S.time      = instruct_onset; % instruction onset time
+                            % Determine taskName_after and taskName_before
+                            % this instruction
+                            S.taskName_after  = P.taskName(ST);
+                            if ST>1
+                                S.taskName_before = P.taskName(ST-1);
+                            else
+                                S.taskName_before = 'NaN';
+                            end
+                            T = addstruct(T, S);
+                            % the temporal or temporal + dispersion
+                            % derivatives
+                            switch deriv
+                                case 1
+                                    S.deriv = 1;
+                                    T       = addstruct(T, S);
+                                case 2
+                                    S.deriv = 2;
+                                    T       = addstruct(T, S);
+                            end
                             
+                            % filling in the fields for SPM.mat
+                            J.sess(r).cond(itt).name     = 'Instruct';
+                            J.sess(r).cond(itt).onset    = instruct_onset; % correct start time for numDummys and announcetime included (not for instruct)
+                            J.sess(r).cond(itt).duration = 5;              % instructions last for 5 sec
+                            J.sess(r).cond(itt).tmod     = 0;
+                            J.sess(r).cond(itt).orth     = 0;
+                            J.sess(r).cond(itt).pmod     = struct('name', {}, 'param', {}, 'poly', {});
+                            
+                            itt = itt + 1;
                         elseif taskType == 2 % not instructions
-                        end % if it's instructions
+                            % get the task onset (instruction onset + announceTime)
+                            onset = P.realStartTime(ST) - J.timing.RT*numDummys +announceTime;
+                            
+                            % filling in the fields for SPM_info.mat
+                            S.deriv     = 0;
+                            S.task      = it;
+                            S.TN        = Tasks{it};
+                            S.inst      = 0;
+                            S.instOrder = 0;
+                            S.time      = onset;
+                            S.taskName_after  = 'none'; % taskName before and after are only defined for instructions
+                            S.taskName_before = 'none';
+                            
+                            T = addstruct(T, S);
+                            
+                            switch deriv 
+                                case 1
+                                    S.deriv = 1;
+                                    T       = addstruct(S, T);
+                                case 0
+                                    S.deriv = 2;
+                                    T       = addstruct(S, T);
+                            end
+                            
+                            % filling in the fields for SPM.mat
+                            J.sess(r).cond(itt).name     = {Tasks{it}};
+                            J.sess(r).cond(itt).onset    = onset;
+                            J.sess(r).cond(itt).duration = 30;             % each task lasts for 30 sec
+                            J.sess(r).cond(itt).tmod     = 0;
+                            J.sess(r).cond(itt).orth     = 0;
+                            J.sess(r).cond(itt).pmod     = struct('name', {}, 'param', {}, 'poly', {});
+                            
+                            itt = itt + 1;
+                            
+                            keyboard;
+                        end % if it's instructions or not?
                     end % taskType
-                    
-                    
-                    
+
                     keyboard;
                 end % it (tasks)
-                
+                J.sess(r).multi = {''};
+                J.sess(r).regress = struct('name', {}, 'val', {});
+                J.sess(r).multi_reg = {''};
+                J.sess(r).hpf = inf;                                        % set to 'inf' if using J.cvi = 'FAST'. SPM HPF not applied
                 
                 keyboard;
             end % r (runs)
+            J.fact = struct('name', {}, 'levels', {});
+            switch deriv
+                case 0 % no derivatives
+                    J.bases.hrf.derivs = [0 0];
+                case 1 % temporal derivative
+                    J.bases.hrf.derivs = [1 0];
+                case 2 % temporal and dispersion derivative
+                    J.bases.hrf.derivs = [1 1];
+            end % including temporal and dispersion derivatives or not?                                    
+            J.bases.hrf.params = [4.5 11];                                  % set to [] if running wls
+            J.volt             = 1;
+            J.global           = 'None';
+            J.mask             = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_noskull.nii,1')};
+            J.mthresh          = 0.05;
+            J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
+            J.cvi              =  'fast';
             
+            keyboard;
+            
+            spm_rwls_run_fmri_spec(J);
+            
+            save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
+            fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
         end % s (sn)
-    case 'GLM:study1_glm4'                   % STEP 5.1c:FAST glm w/out hpf (complex:rest as baseline) - model one instruct period
+    case 'GLM:study1_glm4'      % STEP 5.1c:FAST glm w/out hpf (complex:rest as baseline) - model one instruct period
         % GLM with FAST and no high pass filtering
         % 'spm_get_defaults' code modified to allow for -v7.3 switch (to save
         % >2MB FAST GLM struct)
