@@ -955,7 +955,7 @@ switch what
                 J.sess(r).scans = N; % path to scans
                 
                 % loop through tasks
-                itt = 1; % this additional index is added to handle the separate instruction regressor thing
+                itt = 1; % this additional index will be used to fill in the fields for the J structure
                 for it = 1:nTask 
                     % The order of tasks are different for each run, to
                     % have a common order for the tasks, I will be reading
