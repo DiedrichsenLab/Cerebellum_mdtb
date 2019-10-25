@@ -866,7 +866,7 @@ switch what
         experiment    = 1;           %% sc1 or sc2?
         ppmethod      = '';          %% 'stc' or ''? The default is set to ''
         deriv         = 1;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
-        glm           = 11;          %% the glm number      
+        glm           = 82;          %% the glm number      
         
         vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
                 
@@ -969,7 +969,7 @@ switch what
                             % filling in the fields for SPM_info.mat
                             S.deriv     = 0;              % deriv is used to identify the derivative regressors
                             S.task      = 0;              % task Number
-                            S.TN        = 'Instruct';     % task name (TN)
+                            S.TN        = {'Instruct'};   % task name (TN)
                             S.inst      = 1;              % is it instruction (1) or not (0)?
                             S.instOrder = ST;             % instOrder is defined by the task that comes after the instruction
                             S.time      = instruct_onset; % instruction onset time
@@ -981,16 +981,16 @@ switch what
                             else
                                 S.taskName_before = 'NaN';
                             end
-                            T = addstruct(T, S);
+                            T  = addstruct(T, S);
                             % the temporal or temporal + dispersion
                             % derivatives
                             switch deriv
                                 case 1
                                     S.deriv = 1;
-                                    T       = addstruct(T, S);
+                                    T  = addstruct(T, S);
                                 case 2
                                     S.deriv = 2;
-                                    T       = addstruct(T, S);
+                                    T  = addstruct(T, S);
                             end
                             
                             % filling in the fields for SPM.mat
@@ -1009,26 +1009,26 @@ switch what
                             % filling in the fields for SPM_info.mat
                             S.deriv     = 0;
                             S.task      = it;
-                            S.TN        = Tasks{it};
+                            S.TN        = {Tasks{it}};
                             S.inst      = 0;
                             S.instOrder = 0;
                             S.time      = onset;
-                            S.taskName_after  = 'none'; % taskName before and after are only defined for instructions
-                            S.taskName_before = 'none';
+                            S.taskName_after  = {'none'}; % taskName before and after are only defined for instructions
+                            S.taskName_before = {'none'};
                             
-                            T = addstruct(T, S);
+                            T  = addstruct(T, S);
                             
                             switch deriv 
                                 case 1
                                     S.deriv = 1;
-                                    T       = addstruct(S, T);
+                                    T  = addstruct(T, S);
                                 case 0
                                     S.deriv = 2;
-                                    T       = addstruct(S, T);
+                                    T  = addstruct(T, S);
                             end
                             
                             % filling in the fields for SPM.mat
-                            J.sess(r).cond(itt).name     = {Tasks{it}};
+                            J.sess(r).cond(itt).name     = Tasks{it};
                             J.sess(r).cond(itt).onset    = onset;
                             J.sess(r).cond(itt).duration = 30;             % each task lasts for 30 sec
                             J.sess(r).cond(itt).tmod     = 0;
@@ -1036,19 +1036,13 @@ switch what
                             J.sess(r).cond(itt).pmod     = struct('name', {}, 'param', {}, 'poly', {});
                             
                             itt = itt + 1;
-                            
-                            keyboard;
                         end % if it's instructions or not?
-                    end % taskType
-
-                    keyboard;
+                    end % taskType (looping over instruction and non-instructions)
                 end % it (tasks)
                 J.sess(r).multi = {''};
                 J.sess(r).regress = struct('name', {}, 'val', {});
                 J.sess(r).multi_reg = {''};
                 J.sess(r).hpf = inf;                                        % set to 'inf' if using J.cvi = 'FAST'. SPM HPF not applied
-                
-                keyboard;
             end % r (runs)
             J.fact = struct('name', {}, 'levels', {});
             switch deriv
@@ -1066,8 +1060,6 @@ switch what
             J.mthresh          = 0.05;
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
-            
-            keyboard;
             
             spm_rwls_run_fmri_spec(J);
             
