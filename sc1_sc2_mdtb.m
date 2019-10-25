@@ -7,8 +7,7 @@ numDummys = 3;   % number of dummy scans per run
 numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
-% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
-baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
+baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/super_cerebellum';
 
 %%% setting directory names
@@ -633,10 +632,10 @@ switch what
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
         end        
-    case 'GLM:mdtb:design_glm8' % GLM with each TASK modeled as a 30-sec block regressor. The instruction for each TASK is modeled as a separate regressor
+    case 'GLM:mdtb:design_glm8_old' % GLM with each TASK modeled as a 30-sec block regressor. The instruction for each TASK is modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
-        % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', [3]);
+        % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8_old', 'sn', [3]);
         sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
@@ -860,7 +859,237 @@ switch what
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
-        end        
+        end
+    case 'GLM:mdtb:design_glm8' % GLM with each task modeled as a 30 sec block regressor
+        % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', [3]);
+        sn            = returnSubjs; %% list of subjects
+        experiment    = 1;           %% sc1 or sc2?
+        ppmethod      = '';          %% 'stc' or ''? The default is set to ''
+        deriv         = 1;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
+        glm           = 11;          %% the glm number      
+        
+        vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
+                
+        % load in task information
+%         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C     = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
+        Cc    = getrow(C, C.StudyNum == experiment);
+        Tasks = unique(Cc.taskNames,'rows','stable'); % get the task names
+        Tasks(strcmp(Tasks, 'Instruct')) = [];        % .dat file with all the info for the tasks does not have 'Instruct', so I'm eliminating it here!
+        nTask = unique(length(Tasks));   % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
+
+        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        
+        %%% SPM and SPM_info files will be saved in glmDir
+        switch ppmethod
+            case ''
+                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                imDir  = 'imaging_data';
+                prefix = 'r';
+            case 'stc'
+                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
+                imDir  = 'imaging_data_stc';
+                prefix = 'ra';
+        end
+        dircheck(glmDir)
+        
+        for s = sn 
+            fprintf('******************** creating SPM.mat file for %s ********************\n', subj_name{s});
+            
+            S.SN = s;
+            
+            T = []; % T will be saved as SPM_info.mat
+            A = dload(fullfile(baseDir, experiment, 'data', subj_name{s}, sprintf('%s_%s.dat', experiment, subj_name{s})));
+            A = getrow(A,A.runNum>=funcRunNum(1) & A.runNum<=funcRunNum(2));
+            
+            glmSubjDir = fullfile(glmDir, subj_name{s});
+            dircheck(glmSubjDir);
+            
+            % starting to set up spm job parameters
+            J.dir            = {glmSubjDir};
+            J.timing.units   = 'secs';
+            J.timing.RT      = 1.0;
+            switch ppmethod
+                case 'stc'
+                    J.timing.fmri_t  = 48; %% there are 48 slices
+                    J.timing.fmri_t0 = 24; %% set it to the middle slice
+                case ''
+                    J.timing.fmri_t  = 16;
+                    J.timing.fmri_t0 = 1; %% set it to the middle slice
+            end
+            
+            % from Maedbh code: annoying but reorder behavioural runs slightly for 2
+            % subjects...
+            switch experiment
+                case 'sc1'
+                    if strcmp(subj_name{s},'s18')
+                        %                 runTrue = [51,52,53,54,55,56,57,58,59,61,62,63,64,65,66,60];
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','11','12','13','14','15','16','10'};
+                    elseif strcmp(subj_name{s},'s21')
+                        %                 runTrue = [51,52,53,54,55,56,57,58,59,60,61,63,64,65,66,62];
+                        runTruestr = {'01','02','03','04','05','06','07','08','09', '10', '11','13','14','15','16','12'};
+                    else
+                        %                         runTrue = runB;
+                        runTruestr = run{1};
+                    end
+                    runTrue = runB;
+                case 'sc2'
+                    runTrue    = runB;
+                    runTruestr = run{2};
+            end % for experiment 1 the order of the runs for two subjects is different
+            
+            % loop through runs
+            for r = runLst
+                S.run = r;
+                % get the task data for the run
+                P = getrow(A,A.runNum == runTrue(r));
+                
+                % get the paths to the images for each run
+                N = cell(1, numTRs - numDummys);   %% preallocating the variable that will contain the paths pointing to the image files
+                for it = 1:(numTRs-numDummys)
+                    N{it} = fullfile(baseDir, 'sc1', imDir, subj_name{s}, sprintf('%srun_%s.nii,%d', prefix, runTruestr{r}, it));
+                end % scans (volume images)
+                J.sess(r).scans = N; % path to scans
+                
+                % loop through tasks
+                itt = 1; % this additional index is added to handle the separate instruction regressor thing
+                for it = 1:nTask 
+                    % The order of tasks are different for each run, to
+                    % have a common order for the tasks, I will be reading
+                    % from the Cc file for all the runs and subjects
+                    ST = find(strcmp(P.taskName,Tasks{it}));
+                    for taskType = 1:2 % there are two taskTypes: instruction; not instructions
+                        if taskType == 1 % instructions
+                            
+                            % filling in the fields for SPM_info.mat
+                            S.task      = 0;          % task Number
+                            S.TN        = 'Instruct'; % task name (TN)
+                            S.inst      = 1;
+                            S.instOrder = ST;
+                            
+                        elseif taskType == 2 % not instructions
+                        end % if it's instructions
+                    end % taskType
+                    
+                    
+                    
+                    keyboard;
+                end % it (tasks)
+                
+                
+                keyboard;
+            end % r (runs)
+            
+        end % s (sn)
+    case 'GLM:study1_glm4'                   % STEP 5.1c:FAST glm w/out hpf (complex:rest as baseline) - model one instruct period
+        % GLM with FAST and no high pass filtering
+        % 'spm_get_defaults' code modified to allow for -v7.3 switch (to save
+        % >2MB FAST GLM struct)
+        % Be aware: this switch (from -v6 to -v7.3) slows down the code!
+        % EXAMPLE: sc1_sc2_imana('GLM:study1_glm4',[2:22],[1:16])
+        sn=varargin{1};
+        runs=varargin{2}; % [1:16]
+        
+        prefix='r';
+        announceTime=5;
+        glm=4;
+        
+        subjs=length(sn);
+        
+        % load in task information
+        C=dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        Cc=getrow(C,C.StudyNum==1);
+        
+        for s=sn,
+            T=[];
+            A = dload(fullfile(studyDir{1},'data', subj_name{s},['sc1_',subj_name{s},'.dat']));
+            A = getrow(A,A.runNum>=funcRunNum(1) & A.runNum<=funcRunNum(2));
+            
+            glmSubjDir =[studyDir{1}, sprintf('/GLM_firstlevel_%d/',glm),subj_name{s}];dircheck(glmSubjDir);
+            
+            J.dir = {glmSubjDir};
+            J.timing.units = 'secs';
+            J.timing.RT = 1.0;
+            J.timing.fmri_t = 16;
+            J.timing.fmri_t0 = 1;
+            
+            % annoying but reorder behavioural runs slightly for 2
+            % subjects...
+            if strcmp(subj_name{s},'s18')
+                runB = [51,52,53,54,55,56,57,58,59,61,62,63,64,65,66,60];
+            elseif strcmp(subj_name{s},'s21'),
+                runB = [51,52,53,54,55,56,57,58,59,60,61,63,64,65,66,62];
+            end
+            
+            for r=1:numel(run) % loop through runs
+                P=getrow(A,A.runNum==runB(r));
+                for i=1:(numTRs-numDummys)
+                    N{i} = [fullfile(studyDir{1},imagingDir,subj_name{s},[prefix sprintf('run_%2.2d',runs(r)),'.nii,',num2str(i)])];
+                end;
+                J.sess(r).scans= N; % number of scans in run
+                
+                for c=1:length(Cc.condNames), % loop through trial-types (ex. congruent and incongruent)
+                    
+                    % different onset time for instruct
+                    if c==1,
+                        onset=[P.realStartTime-J.timing.RT*numDummys];
+                    else
+                        D=dload(fullfile(studyDir{1},behavDir, subj_name{s},['sc1_',subj_name{s},'_',Cc.taskNames{c},'.dat']));
+                        R=getrow(D,D.runNum==runB(r)); % functional runs
+                        ST = find(strcmp(P.taskName,Cc.taskNames{c}));
+                        
+                        % determine trialType (ugly -- but no other way)
+                        if isfield(R,'trialType'),
+                            tt=(R.trialType==Cc.trialType(c));
+                        else
+                            tt=Cc.trialType(c);
+                        end
+                        if strcmp(Cc.taskNames{c},'visualSearch'),
+                            tt=(R.setSize==Cc.trialType(c));
+                        elseif strcmp(Cc.taskNames{c},'nBack') || strcmp(Cc.taskNames{c},'nBackPic')
+                            tt=(R.respMade==Cc.trialType(c));
+                        elseif strcmp(Cc.taskNames{c},'motorImagery') || strcmp(Cc.taskNames{c},'ToM'),
+                            tt=1;
+                        end
+                        
+                        onset=[P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                    end
+                    
+                    % loop through trial-types (ex. congruent or incongruent)
+                    J.sess(r).cond(c).name = Cc.condNames{c};
+                    J.sess(r).cond(c).onset = onset; % correct start time for numDummys and announcetime included (not for instruct)
+                    J.sess(r).cond(c).duration = Cc.duration(c);  % duration of trials (+ fixation cross) we are modeling
+                    J.sess(r).cond(c).tmod = 0;
+                    J.sess(r).cond(c).orth = 0;
+                    J.sess(r).cond(c).pmod = struct('name', {}, 'param', {}, 'poly', {});
+                    S.SN    = s;
+                    S.run   = r;
+                    S.task  = Cc.taskNum(c);
+                    S.cond  = Cc.condNum(c);
+                    S.TN    = {Cc.condNames{c}};
+                    S.sess  = sess(r);
+                    T=addstruct(T,S);
+                end
+                J.sess(r).multi = {''};
+                J.sess(r).regress = struct('name', {}, 'val', {});
+                J.sess(r).multi_reg = {''};
+                J.sess(r).hpf = inf;                                        % set to 'inf' if using J.cvi = 'FAST'. SPM HPF not applied
+            end
+            J.fact = struct('name', {}, 'levels', {});
+            J.bases.hrf.derivs = [0 0];
+            J.bases.hrf.params = [4.5 11];                                  % set to [] if running wls
+            J.volt = 1;
+            J.global = 'None';
+            J.mask = {fullfile(studyDir{1},imagingDir,subj_name{s},'rmask_noskull.nii,1')};
+            J.mthresh = 0.05;
+            J.cvi_mask = {fullfile(studyDir{1},imagingDir,subj_name{s},'rmask_gray.nii')};
+            J.cvi =  'fast';
+            
+            spm_rwls_run_fmri_spec(J);
+            
+            save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
+            fprintf('glm_%d has been saved for %s \n',glm, subj_name{sn(s)});
+        end
     case 'GLM:mdtb:design_glm9' % GLM with each TASK modeled as a block regressor. The duration of the block is equal to the sum of durations of the trials
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
