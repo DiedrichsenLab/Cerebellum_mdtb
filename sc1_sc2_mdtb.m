@@ -7,7 +7,8 @@ numDummys = 3;   % number of dummy scans per run
 numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
-baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 % baseDir = '/home/ladan/Documents/super_cerebellum';
 
 %%% setting directory names
@@ -29,7 +30,7 @@ ntp     = 598;     %% number of time points after eliminating the dummy scans
 subj_name = {'s01','s02','s03','s04','s05','s06','s07','s08','s09','s10','s11',...
     's12','s13','s14','s15','s16','s17','s18','s19','s20','s21','s22','s23','s24',...
     's25','s26','s27','s28','s29','s30','s31'};
-% returnSubjs=[2,3,4,6,8,9,10,12,14,15,17,18,19,20,21,22,24,25,26,27,28,29,30,31]; % "good" subjects
+returnSubjs=[2,3,4,6,8,9,10,12,14,15,17,18,19,20,21,22,24,25,26,27,28,29,30,31]; % "good" subjects
 
 %%% ROIs
 corticalParcels    = {'yeo_7WB', 'yeo_17WB', 'tesselsWB', 'desikan', 'cortex_grey', 'cortex'};
@@ -68,7 +69,7 @@ switch what
         % the dcm file.
         % Example: sc1_sc2_mdtb('PHYS:mdtb:get_log', 'sn', 26, 'sess', 1, 'scan', 3)
         
-        sn   = 1:31;
+        sn   = returnSubjs;
         sess = 1:2;    %% set it to either 1 or 2
         scan = 1:8;    %% check out the dicom folder for subject and find the scanning session with all the files
         
@@ -99,7 +100,7 @@ switch what
         % have the log files!
         % Example: sc1_sc2_mdtb('PHYS:mdtb:get_reg', 'sn', 26)
         
-        sn   = 1:31;
+        sn   = [24, 25, 26, 27, 28, 30, 31];
         sess = 1:2;
         scan = 1:8;
         
@@ -181,15 +182,15 @@ switch what
                     physio.model.censor_unreliable_recording_intervals = false; % should I set it to true?
                     physio.model.output_multiple_regressors            = regTxtName;
                     physio.model.output_physio                         = physioName;
-                    physio.model.retroicor.include                     = true;
+                    physio.model.retroicor.include                     = false;
                     physio.model.retroicor.order.c                     = 3;
                     physio.model.retroicor.order.r                     = 4;
                     physio.model.retroicor.order.cr                    = 1;
-                    physio.model.rvt.include                           = false;
+                    physio.model.rvt.include                           = true;
                     physio.model.rvt.delays                            = 0;
-                    physio.model.hrv.include                           = false;
+                    physio.model.hrv.include                           = true;
                     physio.model.hrv.delays                            = 0;
-                    physio.model.noise_rois.include                    = false;
+                    physio.model.noise_rois.include                    = true;
                     physio.model.noise_rois.thresholds                 = 0.9;
                     physio.model.noise_rois.n_voxel_crop               = 0;
                     physio.model.noise_rois.n_components               = 1;
@@ -207,29 +208,115 @@ switch what
                     physio.ons_secs.r_scaling                          = 1;
                     
                     % Run physiological recording preprocessing and noise modeling
-                    [physio, R, ons] = tapas_physio_main_create_regressors(physio); 
+                    [~, R, ~] = tapas_physio_main_create_regressors(physio);
+                    save(fullfile(outDir, sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, ss, sca)), 'R', '-v7.3')
+                    close all
                     keyboard;
                     fprintf('\n********** Physio regressors extracted for %s sess %d scan %d **********\n', subj_name{s}, ss, sca);
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
+    case 'PHYS:mdtb:lin_reg' % regresses HRV and RVT on the regressor(s) for instructions
+        %%% uses one subject
+        % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
+        sn         = 24;
+        experiment = 1; 
+        ppmethod   = '';
+        glm        = 7;
+        sess       = 1:2;
+        scan       = 1:8;
         
+        vararginoptions(varargin, {'sn', 'experiment', 'ppmethod', 'glm', 'sess', 'scan'});
+        
+        experiment = sprintf('sc%d', experiment);
+        
+        switch ppmethod
+            case ''
+                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+            case 'stc'
+                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
+        end
+        PhysioDir = fullfile(baseDir, 'Physio');
+        
+        for s = sn
+            
+            % load in the SPM file (This could take a while)
+            load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
+            
+            % load in SPM_info file
+            T      = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            
+            phys_cell = cell(length(sess), length(scan)); % preallocating the cell mat that will have all the linear reg results for a subject
+            for ss = sess
+                for sca = scan
+                    
+                    X     = SPM.xX.X(1:598, 1:end - 16);                                        % discarding the intercepts
+                    ind   = ((T.sess == ss) & (T.run == sca) & (T.inst == 1) & (T.deriv == 0)); % get the indices for run1, instructions, non-derivatives
+                    X_ind = X(:, ind);                                                          
+                    X_reg = [zeros(3, 16); X_ind];                                              % My design matrix, adding zeros for dummies!
+                    % load in HRV and RVT regressors
+                    load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca)));
+                    
+                    HRV = physio.model.R(:, 1);
+                    RVT = physio.model.R(:, 2);
+                    
+                    % Do OLS regression for HRV
+                    [b_hrv,bint_hrv,r_hrv,rint_hrv,stats_hrv] = regress(HRV,X_reg);
+                    % Do OLS regression for RVT
+                    [b_rvt,bint_rvt,r_rvt,rint_rvt,stats_rvt] = regress(RVT,X_reg);
+                    
+                    physio_reg.b_hrv     = b_hrv;
+                    physio_reg.b_rvt     = b_rvt;
+                    physio_reg.bint_hrv  = bint_hrv;
+                    physio_reg.bint_rvt  = bint_rvt;
+                    physio_reg.r_hrv     = r_hrv;
+                    physio_reg.r_rvt     = r_rvt;
+                    physio_reg.rint_hrv  = rint_hrv;
+                    physio_reg.rint_rvt  = rint_rvt;
+                    physio_reg.stats_hrv = stats_hrv;
+                    physio_reg.stats_rvt = stats_rvt;
+                    
+                    % represent instructions with a single regressor:
+                    Xreg_uni = sum(X_reg, 2);
+                    [b1_hrv,bint1_hrv,r1_hrv,rint1_hrv,stats1_hrv] = regress(HRV,Xreg_uni);
+                    [b1_rvt,bint1_rvt,r1_rvt,rint1_rvt,stats1_rvt] = regress(RVT,Xreg_uni);
+                    
+                    physio_reg.b1_hrv     = b1_hrv;
+                    physio_reg.bint1_hrv  = bint1_hrv;
+                    physio_reg.r1_hrv     = r1_hrv;
+                    physio_reg.rint1_hrv  = rint1_hrv;
+                    physio_reg.stats1_hrv = stats1_hrv;
+                    physio_reg.b1_rvt     = b1_rvt;
+                    physio_reg.bint1_rvt  = bint1_rvt;
+                    physio_reg.r1_rvt     = r1_rvt;
+                    physio_reg.rint1_rvt  = rint1_rvt;
+                    physio_reg.stats1_rvt = stats1_rvt;
+                    
+                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca)), 'physio_reg', '-v7.3');
+                    
+                    phys_cell{ss, sca} = physio_reg;
+                end % sca (scan)
+            end % ss (sess)
+        end % s (sn)
+        varargout{1} = phys_cell;
+    
     case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regerssor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
-        sn            = 1:31; %% list of subjects
-        experiment    = 2;    %% sc1 or sc2?
-        ppmethod      = '';   %% 'stc' or ''? The default is set to ''
-        deriv         = 1;    %% 'temp', 'temp_disp', or 'none'?
-        glm           = 7;    %% the glm number      
+        sn            = returnSubjs; %% list of subjects
+        experiment    = 1;           %% sc1 or sc2?
+        ppmethod      = '';          %% 'stc' or ''? The default is set to ''
+        deriv         = 1;           %% 'temp', 'temp_disp', or 'none'?
+        glm           = 72;           %% the glm number      
         
         vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
         
         announceTime = 5;
                 
         % load in task information
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+%         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
         Cc = getrow(C, C.StudyNum == experiment);
         
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
@@ -305,7 +392,7 @@ switch what
                 %%%%% then the task itself
                 ic0 = 2; %% task condition index (not including the first index which is the instruction when reading from Cc)
                 ic  = 1; %% I call this the universal index :)
-                for it = 1:length(P.taskNum)-1 % "it" is task index (each task can have multiple conditions)
+                for it = 1:length(P.taskNum) %it = 1:length(P.taskNum)-1 % "it" is task index (each task can have multiple conditions)
                     %%% P.taskNum is the number of tasks so it does not
                     %%% include the instruction. But it includes rest!
                     % Instructions first
@@ -550,7 +637,7 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', [3]);
-        sn            = 1:31; %% list of subjects
+        sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
         deriv         = 1;    %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
@@ -778,7 +865,7 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm9', 'sn', [3]);
-        sn            = 1:31; %% list of subjects
+        sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
         deriv         = 1;    %% 'temp', 'temp_disp', or 'none'?
@@ -1026,7 +1113,7 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm10', 'sn', [3]);
-        sn            = 1:31; %% list of subjects
+        sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
         deriv         = 1;    %% 'temp', 'temp_disp', or 'none'?
@@ -1357,7 +1444,7 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm12', 'sn', [3]);
-        sn            = 1:31; %% list of subjects
+        sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
         deriv         = 1;    %% 'temp', 'temp_disp', or 'none'?
@@ -1680,7 +1767,7 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm11', 'sn', [3]);
-        sn            = 1:31; %% list of subjects
+        sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
         deriv         = 1;    %% 'temp', 'temp_disp', or 'none'?
@@ -1997,8 +2084,8 @@ switch what
         %%% This is time consuming, but I run it to get the whitening
         %%% filter that will then be applied to the time series.
         % Example: sc1_sc2_mdtb('GLM:mdtb:run_glm', 'sn', [2])
-        sn         = 1:31;   %% list of subjects
-        glm        = 12;      %% The glm number :)
+        sn         = returnSubjs;   %% list of subjects
+        glm        = 72;      %% The glm number :)
         experiment = 1;
         ppmethod   = '';  %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         
@@ -2036,11 +2123,11 @@ switch what
         % written with each task modeled as a 30 sec block and instructions
         % modeled as a separate regressor.
         % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [2], 'glm', 9, 'which', 'task')
-        % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [2], 'glm', 10, 'which', 'cond')
+        % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
-        sn         = 1:31;        %% list of subjects
+        sn         = returnSubjs;        %% list of subjects
         glm        = 7;           %% The glm number :)
-        experiment = 2;
+        experiment = 1;
         ppmethod   = '';          %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         con_vs     = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
         which      = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
@@ -2171,16 +2258,16 @@ switch what
         % the average of the beta values for the conditions of a task
         % Example: sc1_sc2_mdtb('GLM:mdtb:contrast_task', 'sn', [3])
         
-        sn         = 1:31;        %% list of subjects
-        glm        = 7;           %% The glm number :)
-        experiment = 2;
+        sn         = returnSubjs;        %% list of subjects
+        glm        = 72;           %% The glm number :)
+        experiment = 1;
         ppmethod   = '';          %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         con_vs     = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
         
         vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod', 'con_vs'})
         
         % gt the task info
-        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
         Cc  = getrow(C,C.StudyNum == experiment);
         
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
@@ -2256,7 +2343,7 @@ switch what
         % down code for FAST GLM)
         % Example: sc1_sc2_mdtb('GLM:mdtb:contrast_utransitions_names', 'sn', [3])
         
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         glm        = 7;      %% The glm number :)
         experiment = 1;
         ppmethod   = '';  %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
@@ -2315,7 +2402,7 @@ switch what
         % down code for FAST GLM)
         % Example: sc1_sc2_mdtb('GLM:mdtb:contrast_transitions_id', 'sn', [3])
         
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         glm        = 7;      %% The glm number :)
         experiment = 1;
         ppmethod   = '';     %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
@@ -2414,7 +2501,7 @@ switch what
         % 'SUIT:mdtb:suit_parcel2native' first!
         % Example: sc1_sc2_mdtb('ROI:mdtb:define', 'sn', [3])
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         atlas_res  = 32;        %% atlas resolution set to 32 or 164
         nNodes     = 162;       %% options: 162, 362, 642, 1002, 1442
         experiment = 1;
@@ -2505,7 +2592,7 @@ switch what
         % non-empty across all the subjects
         % Example: sc1_sc2_mdtb('ROI:mdtb:empty_parcel', 'sn', 3)
         
-        sn           = 1:31;
+        sn           = returnSubjs;
         parcellation = 'Buckner_17'; %% the parcellation you want to inspect
         experiment   = 1;
         
@@ -2535,7 +2622,7 @@ switch what
         % makes nifti file for each ROI. Useful for checking.
         % Example: sc1_sc2_mdtb('ROI:mdtb:make_nifti', 'sn', [3]);
         
-        sn         = 1:31;      %% subject for whom you want to create the ROI nifti files. (I always use s03 :))         
+        sn         = returnSubjs;      %% subject for whom you want to create the ROI nifti files. (I always use s03 :))         
         parcelType = 'Buckner_7';
         experiment = 1;
         
@@ -2569,7 +2656,7 @@ switch what
         % method is 'runwise'.
         % Example: sc1_sc2_mdtb('ROI:mdtb:beta_unn', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 17, 18, 19, 20]);
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         ppmethod   = '';
         experiment = 2;
         roi        = 'yeo_17WB'; %% other options are 'Buckner_17', 'yeo_7WB', and 'yeo_17WB'
@@ -2698,7 +2785,7 @@ switch what
         %%% to get the design matrix that you want.
         %%% You have to run it for each roi separately
         % Example: sc1_sc2_mdtb('ROI:mdtb:extract_ts', 'sn', [3])
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -2824,7 +2911,7 @@ switch what
         %%% in a structure variable that will be used in further analysis
         %%% steps.
         % Example: sc1_sc2_mdtb('ROI:mdtb:average_ts', 'sn', a, 'roi', 'regions_tesselsWB_162')
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -2900,11 +2987,11 @@ switch what
         % to the workbench surface.
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [3])
     
-        sn         = 1:31;        %% list of subjects
+        sn         = returnSubjs;        %% list of subjects
         ppmethod   = '';          %% with or without stc
         atlas_res  = 32;          %% set it to 32 or 164
-        experiment = 2;           %% enter 1 for sc1 and 2 for sc2
-        glm        = 7;           %% glm number
+        experiment = 1;           %% enter 1 for sc1 and 2 for sc2
+        glm        = 72;           %% glm number
         con_vs     = 'average_1'; %% set it to 'rest' or 'average'
         
         vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment', 'glm', 'con_vs'});
@@ -2955,7 +3042,7 @@ switch what
         % to the workbench surface.
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [3])
     
-        sn         = 1:31;        %% list of subjects
+        sn         = returnSubjs;        %% list of subjects
         ppmethod   = '';          %% with or without stc
         atlas_res  = 32;          %% set it to 32 or 164
         experiment = 1;           %% enter 1 for sc1 and 2 for sc2
@@ -3021,15 +3108,15 @@ switch what
         % WorkBench surface
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_task', 'sn', [3])
     
-        sn         = 1:31;        %% list of subjects
+        sn         = returnSubjs;        %% list of subjects
         ppmethod   = '';          %% with or without stc
         atlas_res  = 32;          %% set it to 32 or 164
-        experiment = 2;           %% enter 1 for sc1 and 2 for sc2
-        glm        = 7;           %% glm number
+        experiment = 1;           %% enter 1 for sc1 and 2 for sc2
+        glm        = 72;           %% glm number
         con_vs     = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2'
         
         % gt the task info
-        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
         Cc  = getrow(C,C.StudyNum == experiment);
         
         vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment', 'glm', 'con_vs'});
@@ -3082,7 +3169,7 @@ switch what
         % transitions with the task names to workbench surface
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_utransitions_names', 'sn', [3])
     
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         atlas_res  = 32;     %% set it to 32 or 164
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
@@ -3134,7 +3221,7 @@ switch what
         % transitions (256 for sc1) to workbench surface
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_transitions_id', 'sn', [3])
     
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         atlas_res  = 32;     %% set it to 32 or 164
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
@@ -3185,7 +3272,7 @@ switch what
         % creates group average contrast maps for task contrasts
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con', 'sn', [3])
     
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         atlas_res  = 32;     %% set it to 32 or 164
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
@@ -3265,7 +3352,7 @@ switch what
         % creates group average contrast maps for task contrasts
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_task', 'sn', [3])
     
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         atlas_res  = 32;     %% set it to 32 or 164
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
@@ -3340,7 +3427,7 @@ switch what
         % task names
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_utransitions_names', 'sn', [3])
     
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         atlas_res  = 32;     %% set it to 32 or 164
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
@@ -3401,7 +3488,7 @@ switch what
         % creates group average contrast maps for all the transitions
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_transitions_id', 'sn', [3])
     
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         atlas_res  = 32;     %% set it to 32 or 164
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
@@ -3656,15 +3743,15 @@ switch what
         % takes all the gifti files for the contrasts for each subject and
         % merge them all together in a single file. It can do it both on
         % individual level and group level.
-        % Example: sc1_sc2_mdtb('SURF:contrasts_single_gifti', 'sn', 2)
+        % Example: sc1_sc2_mdtb('SURF:contrasts_single_gifti', 'sn', 3)
         
-        sn          = 1:31;           %%
+        sn          = returnSubjs;           %%
         glm         = 7;              %%
         experiment  = 1;              %%
         ppmethod    = '';             %%
-        which       = 'cond';         %%
+        which       = 'task';         %%
         igroup      = 0;              %% do it for the group average files or for the individual subjects?
-        con_vs      = 'rest_taskCon'; %% choose 'average_1', 'average_2', or 'rest', or 'rest_taskCon' (if glm7 and task)
+        con_vs      = 'average_1_taskCon'; %% choose 'average_1', 'average_2', or 'rest', or 'rest_taskCon' (if glm7 and task)
 %         atlas_res   = 32;           %% atlas resolution can either be 32 or 64
         replaceNaNs = 1;              %% set to 1 or 0 
         
@@ -3703,6 +3790,7 @@ switch what
                                 subj_name{s}, hemI{h}, conNames{cc}, con_vs));
                             columnName{cc} = sprintf('%s-%s', conNames{cc}, con_vs);
                         end % cc (condition)
+                        cd(fullfile(wbDir, sprintf('glm%d', glm), subj_name{s}));
                         outfilename = sprintf('%s.%s.con_%s-%s.func.gii', subj_name{s}, hemI{h}, which, con_vs);
                         surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaNs);
                         fprintf('a single gifti file for contrasts for %s hemi successfully created for %s\n', hemI{h}, subj_name{s})
@@ -3713,7 +3801,8 @@ switch what
     case 'SUIT:mdtb:suit_parcel2native'
         % maps each atlas of the suit into individual space
         % Example: sc1_sc2_mdtb('SUIT:mdtb:suit_parcel2native', 'sn', [3])
-        sn         = 1:31;
+        
+        sn         = returnSubjs;
         parcelType = 'Buckner_7';                         %% set it to Buckner_7 or Buckner_17
         parcelDir  = fullfile(suitToolDir, 'atlasesSUIT'); %% directory where the nifti image is stored
         experiment = 1;
@@ -3741,7 +3830,7 @@ switch what
         % this case to map all the contrast maps to suit space.
         % Example: sc1_sc2_mdtb('SUIT:mdtb:reslice', 'sn', [3])
         
-        sn         = 1:31;                   %% list of subjects
+        sn         = returnSubjs;                   %% list of subjects
         ppmethod   = '';                     %% with or without stc
         experiment = 1;                      %% enter 1 for sc1 and 2 for sc2
         type       = 'con';                  %% enter the image you want to reslice to suit space
@@ -3861,7 +3950,7 @@ switch what
         % this case
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_cond', 'sn', [3]);
         
-        sn         = 1:31;                   %% list of subjects
+        sn         = returnSubjs;                   %% list of subjects
         ppmethod   = '';                     %% with or without stc
         experiment = 1;                      %% enter 1 for sc1 and 2 for sc2
         type       = 'con';                  %% enter the image you want to reslice to suit space
@@ -3931,7 +4020,7 @@ switch what
         % creates group map for task contrasts
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_task', 'sn', [3]);
         
-        sn         = 1:31;                   %% list of subjects
+        sn         = returnSubjs;                   %% list of subjects
         ppmethod   = '';                     %% with or without stc
         experiment = 1;                      %% enter 1 for sc1 and 2 for sc2
         type       = 'con';                  %% enter the image you want to reslice to suit space
@@ -4000,7 +4089,7 @@ switch what
         % creates group map for unique transitions with task names
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_utransitions_names', 'sn', [3])
         
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
         glm        = 7;      %% glm number
@@ -4068,7 +4157,7 @@ switch what
         % creates group map for unique transitions with task names
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_transitions_id', 'sn', [3])
         
-        sn         = 1:31;   %% list of subjects
+        sn         = returnSubjs;   %% list of subjects
         ppmethod   = '';     %% with or without stc
         experiment = 1;      %% enter 1 for sc1 and 2 for sc2
         glm        = 7;      %% glm number
@@ -4275,7 +4364,7 @@ switch what
         %%% calculating the lagged cross covariance function for the time
         %%% series averaged across runs.
         % Example: sc1_sc2_mdtb('LAG:mdtb:lccf', 'sn', [3], 'roi1', 'cerebellum_grey', 'roi2', 'cerebellum_grey', 'tsType', 'raw')
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -4353,7 +4442,7 @@ switch what
     case 'LAG:mdtb:td'
         %%% estimate the time delays using parabolic interpolation
         % Example: sc1_sc2_mdtb('LAG:mdtb:td', 'sn', [3])
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -4425,7 +4514,7 @@ switch what
     case 'LAG:mdtb:lp'
         % calculating the lag projection map 
         % Example: sc1_sc2_mdtb('LAG:mdtb:lp', 'sn', [3])
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -4495,7 +4584,7 @@ switch what
         % creates the flatmap of lag projection for the cerebellum 
         % Example:sc1_sc2_mdtb('LAG:mdtb:suit:map_cerebellum', 'sn', [3])
         
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -4630,7 +4719,7 @@ switch what
         % plots the flatmap of the cerebellar measure
         % Example: sc1_sc2_mdtb('LAG:mdtb:suit:plot_flatmap', 'sn', [3]);
         
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;          %% the GLM number
@@ -4704,7 +4793,7 @@ switch what
         % creates an "Evoked Activation" dataframe
         % Example: sc1_sc2_mdtb('EA:mdtb:beta_dataframe', 'sn', [2, 3, 4, 7, 8])
         
-        sn         = 1:31;       %% subject list
+        sn         = returnSubjs;       %% subject list
         ppmethod   = '';         %% Did you do the slice timing correction as a preprocessing step?
         experiment = 2;
         glm        = 7;          %% the GLM number
@@ -4876,7 +4965,7 @@ switch what
         
         %%% use xyplot, scatterplot and tapply to reproduce cool figures
         
-        sn         = 1:31;        %% list of the subjects
+        sn         = returnSubjs;        %% list of the subjects
         ppmethod   = '';          %% use the data with or without slice timing correction
         roi1       = 'yeo_17WB';
         roi2       = 'Buckner_17';
@@ -5081,7 +5170,7 @@ switch what
         % networks across structures (cerebellum and cortex)
         % example: sc1_sc2_mdtb('EA:mdtb:beta_corr_net', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 17, 18, 19, 20, 21, 22, 24, 25])
         
-        sn         = 1:31;        %% subject list
+        sn         = returnSubjs;        %% subject list
         ppmethod   = '';          %% Did you do the slice timing correction as a preprocessing step?
         experiment = 1;
         glm        = 7;           %% the GLM number
@@ -5186,7 +5275,7 @@ switch what
         % after the fitting, the residuals will be calculated and saved!
         % Example: sc1_sc2_mdtb('EA:mdtb:beta_modelfit', 'sn', [2])
                 
-        sn         = 1:31;         %% list of the subjects
+        sn         = returnSubjs;         %% list of the subjects
         ppmethod   = '';           %% use the data with or without slice timing correction
         roi1       = 'yeo_17WB';   %%
         roi2       = 'Buckner_17'; %%
@@ -5501,7 +5590,7 @@ switch what
         % added to the name to show that the task cv was done.
         % Example: sc1_sc2_mdtb('EA:mdtb:beta_modelfit_condCV', 'sn', [2, 3, 4, 6, 7, 8, 9, 10])
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         experiment = 1;
         ppmethod   = '';
         glm        = 7;
@@ -5725,7 +5814,7 @@ switch what
         % individual subject.
         % Example: sc1_sc2_mdtb('EA:mdtb:model_selection', 'sn', a)
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         glm        = 7;
         experiment = 1;
         ppmethod   = '';
@@ -5828,7 +5917,7 @@ switch what
         % it's a sorta winner-take-all :)
         % Example: sc1_sc2_mdtb('CONN:mdtb:wta_cerebellum', 'sn', [3]);
         
-        sn         = 1:13;              %
+        sn         = returnSubjs;              %
         experiment = 1;                 %
         ppmethod   = '';                %
         glm        = 7;                 %
@@ -5994,7 +6083,7 @@ switch what
         % Just to have a sense of correlation values 
         % Example: sc1_sc2_mdtb('CONN:mdtb:toy_vtoparcel', 'sn', [2])
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         ppmethod   = '';
         experiment = 1;
         glm        = 7;
@@ -6090,7 +6179,7 @@ switch what
         % the overlap?
         % Example: sc1_sc2_mdtb('CONN:mdtb:toy_corr_overlap', 'sn', [2])
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         ppmethod   = '';
         experiment = 1;
         roi1       = 'yeo_17WB';
@@ -6234,7 +6323,7 @@ switch what
         % maybe you can use something like the case for mapping 1D maps to suit space! 
         % Example: sc1_sc2_mdtb('SHINE:mdtb:ts_dataframe', 'sn', [2, 3, 4, 6, 8, 9, 10])
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         ppmethod   = '';
         glm        = 7;
         experiment = 1;
@@ -6445,7 +6534,7 @@ switch what
         % structure. Use this case to add fields to the beta data structure
         % after modifying the case :)
         % Example: sc1_sc2_mdtb('CHECK:mdtb:modify_betaUnn', 'sn', [3])
-        sn         = 1:31;
+        sn         = returnSubjs;
         ppmethod   = '';
         experiment = 1;
         roi        = 'yeo_17WB';
@@ -6571,7 +6660,7 @@ switch what
         % contrasts for the task transitions.
         % Example: sc1_sc2_mdtb('CHECK:mdtb:task_switch', 'sn', [3]); 
         
-        sn            = 1:31; %% list of subjects
+        sn            = returnSubjs; %% list of subjects
         experiment    = 1;    %% sc1 or sc2?
         ppmethod      = '';   %% 'stc' or ''? The default is set to ''
         glm           = 7;    %% the glm number      
@@ -6632,7 +6721,7 @@ switch what
         % mask) to the RegionOfInterest/data/subj_name{s}.
         % Example: sc1_sc2_mdtb('CHECK:mdtb:cp_cerebellar_masks', 'sn', 3);
         
-        sn         = 1:31; 
+        sn         = returnSubjs; 
         experiment = 1;
         
         vararginoptions(varargin, {'sn', 'experiment'});
@@ -6652,7 +6741,7 @@ switch what
         % same mean across the whole structure
         % Example: sc1_sc2_mdtb('CHECK:mdtb:regions_beta', 'sn', [2, 3, 4, 6, 8, 9, 10])
         
-        sn         = 1:31;
+        sn         = returnSubjs;
         experiment = 1;
         ppmethod   = '';
         roi_old    = 'cerebellum_grey';
@@ -6712,7 +6801,7 @@ switch what
         % fixing that!
         % Example: sc1_sc2_mdtb('CHECK:mdtb_rename_con_transitions', 'sn', 3);
         
-        sn = 1:31;
+        sn = returnSubjs;
         con_vs = 'rest';
         
         vararginoptions(varargin, {'sn', 'con_vs'});
@@ -6738,13 +6827,13 @@ switch what
         % moving files to the server
         % Example: sc1_sc2_mdtb('MDTB:move_files')
         
-        sn         = 1:31; 
+        sn         = returnSubjs; 
         ppmethod   = '';
         experiment = 1;
         glm        = 7;
         con_vs     = 'rest';
         nTrans     = 256;
-        copywhich  = 'physio';
+        copywhich  = 'GLM';
         serverDir  = '/Volumes/MotorControl/data/super_cerebellum_new';
 
         vararginoptions(varargin, {'sn', 'ppmethod', 'glm', 'experiment', 'con_vs', 'nTrans', 'copywhich'});
@@ -6873,8 +6962,9 @@ switch what
                     destFolder   = fullfile(destination, subj_name{s});
                     dircheck(destFolder);
                     cd(sourceFolder);
-%                     system(sprintf('find -name "*" -exec cp {} %s', destFolder));
-                    [success(s), message{s}, ~] = copyfile(sourceFolder, destFolder, 'f');
+                    system(sprintf('find -name -exec cp  -R %s %s;', sourceFolder, destFolder));
+%                     [success(s), message{s}, ~] = copyfile(sourceFolder, destFolder, 'f');
+%                     system('find -name "*.m" -exec cp {} target \;')
                     
                     if success(s) == 1
                         fprintf('%s coppied to the server\n', sourceFolder);
