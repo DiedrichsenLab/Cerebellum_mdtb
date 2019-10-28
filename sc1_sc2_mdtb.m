@@ -846,7 +846,7 @@ switch what
         %%% filter that will then be applied to the time series.
         % Example: sc1_sc2_mdtb('GLM:mdtb:run_glm', 'sn', [2])
         sn         = returnSubjs;   %% list of subjects
-        glm        = 82;            %% The glm number :)
+        glm        = 8;            %% The glm number :)
         experiment = 1;
         ppmethod   = '';            %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         
