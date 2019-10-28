@@ -8,7 +8,7 @@ numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
 baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
-% baseDir = '/home/ladan/Documents/super_cerebellum';
+% baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -29,7 +29,7 @@ ntp     = 598;     %% number of time points after eliminating the dummy scans
 subj_name = {'s01','s02','s03','s04','s05','s06','s07','s08','s09','s10','s11',...
     's12','s13','s14','s15','s16','s17','s18','s19','s20','s21','s22','s23','s24',...
     's25','s26','s27','s28','s29','s30','s31'};
-returnSubjs=[2,3,4,6,8,9,10,12,14,15,17,18,19,20,21,22,24,25,26,27,28,29,30,31]; % "good" subjects
+returnSubjs = [2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31]; % "good" subjects
 
 %%% ROIs
 corticalParcels    = {'yeo_7WB', 'yeo_17WB', 'tesselsWB', 'desikan', 'cortex_grey', 'cortex'};
@@ -314,8 +314,7 @@ switch what
         announceTime = 5;
                 
         % load in task information
-%         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc = getrow(C, C.StudyNum == experiment);
         
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
@@ -643,12 +642,11 @@ switch what
         vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
                 
         % load in task information
-%         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
-        C     = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
+        C     = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc    = getrow(C, C.StudyNum == experiment);
         Tasks = unique(Cc.taskNames,'rows','stable'); % get the task names
         Tasks(strcmp(Tasks, 'Instruct')) = [];        % .dat file with all the info for the tasks does not have 'Instruct', so I'm eliminating it here!
-        nTask = unique(length(Tasks));   % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
+        nTask = unique(length(Tasks));                % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
 
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
         
@@ -910,14 +908,12 @@ switch what
             T    = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
             
             % t contrast for tasks
-%             ucondition = unique(T_rd.(cond));
             ucondition = unique(T.(which));
             idx = 1;
             for tt = 1:length(ucondition) % 0 is "instruct" regressor
                 switch con_vs
                     case 'rest_task' % contrast against rest
                         con                                  = zeros(1,size(SPM.xX.X,2));
-%                         con(:,T_rd.(cond) == ucondition(tt)) = 1;
                         con(:,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1;
                         tmp = zeros(1, size(SPM.xX.X, 2));
                         tmp(:, strcmp(T.TN, 'rest')) = 1;
@@ -926,50 +922,10 @@ switch what
                         con                                  = con/abs(sum(con));
                         con(:, tmp~=0) = -1/sum_rest;
                     case 'average_1' % contrast against the average of the other tasks including the instructions
-%                         con                                  = zeros(1,size(SPM.xX.X,2));
-%                         con(:,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1;
-%                         con                                  = con/abs(sum(con));
-                        %%% if you want to compare against the average of
-                        %%% all the tasks including the one you are
-                        %%% interested in:
-%                         con                                  = bsxfun(@minus, con, 1/length(T.(which)));
-                        %%% if you want to compare against the average of
-                        %%% all the tasks other than the task you are
-                        %%% interested in.
-%                         con(con == 0)     = -1;
-%                         con(T.deriv == 1) = 0;
-%                         tmp            = con == -1;
-%                         tmp_count      = sum(tmp); %% how many beta values other than the ones we are interested in
-%                         con(con == -1) = con(con == -1)/tmp_count; 
                         % New: Eva, Oct 2nd
                         con        = zeros(1,size(SPM.xX.X, 2));
                         con(1,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1./sum(logical((T.(which) == ucondition(tt)) .* (T.deriv == 0)));
                         con(1,logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0)));
-                        
-%                         ncondition = ucondition(ucondition ~= ucondition(tt));
-%                         con        = zeros(length(ncondition),
-%                         size(SPM.xX.X, 2)); % Eva: shouldn't this be
-%                         ncondition-1?
-%                         for j = 1:length(ncondition)
-%                             k = find(T.task == ucondition(tt) & T.deriv == 0);
-%                             l = find(T.task == ncondition(j) & T.deriv == 0);
-% 
-%                             con(j, k) = 1;
-%                             tmp_conin = con(j, k);
-%                             tmp_con   = con(j, :);
-%                             tmp_conin_sum = sum(tmp_conin);
-%                             con(j, k) = con(j, k)./tmp_conin_sum;
-% 
-%                             tmp_con(l) = -1;
-%                             tmp_con(tmp_con == 1) = 0;
-%                             tmp_con_sum = -1*sum(tmp_con);
-% 
-%                             con(j, l) = -1;
-%                             con(j, l) = con(j, l)./tmp_con_sum;
-%                        end % j
-                      %  if (any(abs(sum(con,2))>0.00001))
-                      %      keyboard;
-                      %  end;
                     case 'average_2' % contrast against the average of the other tasks not including the instructions
                         con        = zeros(1,size(SPM.xX.X, 2));
                         % TO TRY below - no instructions as contrasts
@@ -977,20 +933,13 @@ switch what
                         con(1,logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0) .* (T.inst == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0) .* (T.inst == 0)));
                     case 'rest'
                         con                                  = zeros(1,size(SPM.xX.X,2));
-%                         con(:,T_rd.(cond) == ucondition(tt)) = 1;
                         con(:,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1;
                         con                                  = con/abs(sum(con));
                 end
-                switch which
-                    case 'cond'
-                        name = sprintf('%s-%s',char(unique(T.TN(T.(which) == ucondition(tt)))), con_vs);
-                    case 'task'
-%                         name = sprintf('%s-%s',char(unique(T.TN(T.it == ucondition(tt)))), con_vs);
-                        name = sprintf('%s-%s',char(unique(T.TN(T.task == ucondition(tt)))), con_vs);
-                end
                 
-                 SPM.xCon(idx) = spm_FcUtil('Set',name, 'T', 'c',con',SPM.xX.xKXs);
-                %SPM.xCon(idx) = spm_FcUtil('Set',name, 'F', 'c',con',SPM.xX.xKXs);
+                name = sprintf('%s-%s',char(unique(T.TN(T.(which) == ucondition(tt)))), con_vs);
+                
+                SPM.xCon(idx) = spm_FcUtil('Set',name, 'T', 'c',con',SPM.xX.xKXs);
                 idx=idx+1;
             end % tt (conditions)
             SPM = spm_contrasts(SPM,1:length(SPM.xCon));
@@ -1000,7 +949,6 @@ switch what
 
             % rename contrast images and spmT images
              conName = {'con','spmT'};
-%            conName = {'ess','spmF'};
             for i = 1:length(SPM.xCon)
                 for n = 1:numel(conName)
                     oldName{i} = fullfile(glmDir, subj_name{s}, sprintf('%s_%2.4d.nii',conName{n},i));
@@ -1025,7 +973,7 @@ switch what
         vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod', 'con_vs'})
         
         % gt the task info
-        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
+        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc  = getrow(C,C.StudyNum == experiment);
         
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
@@ -1874,7 +1822,7 @@ switch what
         con_vs     = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2'
         
         % gt the task info
-        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
+        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc  = getrow(C,C.StudyNum == experiment);
         
         vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment', 'glm', 'con_vs'});
