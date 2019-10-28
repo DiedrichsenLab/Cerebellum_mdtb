@@ -7,7 +7,8 @@ numDummys = 3;   % number of dummy scans per run
 numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
-baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
+% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 
 %%% setting directory names
@@ -56,7 +57,7 @@ structs = {'cortex', 'cerebellum'};
 hemName = {'CortexLeft', 'CortexRight'};
 
 % The total number of conditions in experiment 1 and 2, including separate
-% instruction regerssor for each task
+% instruction regressor for each task
 nCond_sc1 = 28 + 16;
 nCond_sc2 = 31 + 16;
 nTask     = 16; %% there are 16 tasks and hence 16 instructions
@@ -299,7 +300,7 @@ switch what
         end % s (sn)
         varargout{1} = phys_cell;
     
-    case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regerssor. The instruction for each TASK is also modeled as a separate regressor
+    case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regressor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
@@ -642,10 +643,9 @@ switch what
         vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
                 
         % load in task information
-        C     = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C     = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
         Cc    = getrow(C, C.StudyNum == experiment);
         Tasks = unique(Cc.taskNames,'rows','stable');                       % get the task names
-        Tasks(strcmp(Tasks, 'Instruct') | strcmp(Tasks, 'Instruct2')) = []; % .dat file with all the info for the tasks does not have 'Instruct', so I'm eliminating it here!
         nTask      = unique(length(Tasks));                                 % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
 
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
@@ -846,7 +846,7 @@ switch what
         %%% filter that will then be applied to the time series.
         % Example: sc1_sc2_mdtb('GLM:mdtb:run_glm', 'sn', [2])
         sn         = returnSubjs;   %% list of subjects
-        glm        = 82;            %% The glm number :)
+        glm        = 8;            %% The glm number :)
         experiment = 1;
         ppmethod   = '';            %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         
