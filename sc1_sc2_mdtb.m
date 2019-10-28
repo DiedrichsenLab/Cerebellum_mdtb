@@ -634,19 +634,19 @@ switch what
     case 'GLM:mdtb:design_glm8' % GLM with each task modeled as a 30 sec block regressor
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', [3]);
         sn            = returnSubjs; %% list of subjects
-        experiment    = 1;           %% sc1 or sc2?
+        experiment    = 2;           %% sc1 or sc2?
         ppmethod      = '';          %% 'stc' or ''? The default is set to ''
         deriv         = 1;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
-        glm           = 82;          %% the glm number      
+        glm           = 8;          %% the glm number      
         
         vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
                 
         % load in task information
         C     = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc    = getrow(C, C.StudyNum == experiment);
-        Tasks = unique(Cc.taskNames,'rows','stable'); % get the task names
-        Tasks(strcmp(Tasks, 'Instruct')) = [];        % .dat file with all the info for the tasks does not have 'Instruct', so I'm eliminating it here!
-        nTask = unique(length(Tasks));                % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
+        Tasks = unique(Cc.taskNames,'rows','stable');                       % get the task names
+        Tasks(strcmp(Tasks, 'Instruct') | strcmp(Tasks, 'Instruct2')) = []; % .dat file with all the info for the tasks does not have 'Instruct', so I'm eliminating it here!
+        nTask      = unique(length(Tasks));                                 % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
 
         experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
         
@@ -730,6 +730,11 @@ switch what
                     % The order of tasks are different for each run, to
                     % have a common order for the tasks, I will be reading
                     % from the Cc file for all the runs and subjects
+%                     if overlap(it) == 0 && strcmp(experiment, 'sc2')
+%                         task_get = Tasks{it};
+%                     elseif overlap(it) == 1 && strcmp(experiment, 'sc2')
+%                         task_get = sprintf('%s%d', Tasks{it}, 2);
+%                     end % if the task is overlapping between sc1 and sc2
                     ST = find(strcmp(P.taskName,Tasks{it}));
                     for taskType = 1:2 % there are two taskTypes: instruction; not instructions
                         if taskType == 1 % instructions
@@ -746,10 +751,10 @@ switch what
                             % Determine taskName_after and taskName_before
                             % this instruction
                             S.taskName_after  = P.taskName(ST);
-                            if ST>1
+                            if ST > 1
                                 S.taskName_before = P.taskName(ST-1);
-                            else
-                                S.taskName_before = 'NaN';
+                            elseif ST == 1
+                                S.taskName_before = {'NaN'};
                             end
                             T  = addstruct(T, S);
                             % the temporal or temporal + dispersion
@@ -1697,7 +1702,7 @@ switch what
         ppmethod   = '';          %% with or without stc
         atlas_res  = 32;          %% set it to 32 or 164
         experiment = 1;           %% enter 1 for sc1 and 2 for sc2
-        glm        = 72;           %% glm number
+        glm        = 8;           %% glm number
         con_vs     = 'average_1'; %% set it to 'rest' or 'average'
         
         vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment', 'glm', 'con_vs'});
@@ -2452,12 +2457,12 @@ switch what
         % Example: sc1_sc2_mdtb('SURF:contrasts_single_gifti', 'sn', 3)
         
         sn          = returnSubjs;           %%
-        glm         = 7;              %%
+        glm         = 8;              %%
         experiment  = 1;              %%
         ppmethod    = '';             %%
         which       = 'task';         %%
         igroup      = 0;              %% do it for the group average files or for the individual subjects?
-        con_vs      = 'average_1_taskCon'; %% choose 'average_1', 'average_2', or 'rest', or 'rest_taskCon' (if glm7 and task)
+        con_vs      = 'average_1'; %% choose 'average_1', 'average_2', or 'rest', or 'rest_taskCon' (if glm7 and task)
 %         atlas_res   = 32;           %% atlas resolution can either be 32 or 64
         replaceNaNs = 1;              %% set to 1 or 0 
         
