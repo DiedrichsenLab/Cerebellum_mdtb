@@ -205,11 +205,11 @@ switch what
     case 'PHYS:mdtb:lin_reg' % regresses HRV and RVT on the regressor(s) for instructions
         %%% uses one subject
         % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
-        sn         = 24;
+        sn             = 24;
         experiment_num = 1; 
-        glm        = 7;
-        sess       = 1:2;
-        scan       = 1:8;
+        glm            = 7;
+        sess           = 1:2;
+        scan           = 1:8;
         
         vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'sess', 'scan'});
         
@@ -287,10 +287,9 @@ switch what
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
         sn             = returnSubjs; %% list of subjects
         experiment_num = 1;           %% sc1 or sc2?
-        deriv          = 0;           %% 'temp', 'temp_disp', or 'none'?
         glm            = 7;           %% the glm number      
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'deriv', 'glm'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm'});
         
         announceTime = 5;
                 
@@ -389,77 +388,8 @@ switch what
                     S.cond  = 0;
                     S.TN    = {Cc.condNames{1}};
                     S.sess  = sess(r);
-                    S.deriv = 0;
                 
                     T  = addstruct(T,S);
-                    switch deriv
-                        case 1
-                            % adding the row representing the temporal derivative
-                            S.SN    = s;
-                            S.run   = r;
-                            S.inst  = 1;
-                            
-                            S.instime         = instruct_onset;
-                            S.taskName_after  = P.taskName(ST);
-                            if ST>1
-                                S.taskName_before = P.taskName(ST-1);
-                            else
-                                S.taskName_before = cellstr('NaN');
-                            end
-                            S.instOrder = ST;
-                            
-                            S.task  = Cc.taskNum(1);
-                            S.cond  = 0;
-                            S.TN    = {Cc.condNames{1}};
-                            S.sess  = sess(r);
-                            S.deriv = 1;
-
-                            T  = addstruct(T,S);
-                        case 2
-                            % adding the rows for temporal and dispersion
-                            % derivatives
-                            S.SN    = s;
-                            S.run   = r;
-                            S.inst  = 1;
-                            
-                            S.instime         = instruct_onset;
-                            S.taskName_after  = P.taskName(ST);
-                            if ST>1
-                                S.taskName_before = P.taskName(ST-1);
-                            else
-                                S.taskName_before = 'NaN';
-                            end
-                            S.instOrder = ST;
-                            
-                            S.task  = Cc.taskNum(1);
-                            S.cond  = 0;
-                            S.TN    = {Cc.condNames{1}};
-                            S.sess  = sess(r);
-                            S.deriv = 1;
-
-                            T  = addstruct(T,S);
-                            
-                            S.SN    = s;
-                            S.run   = r;
-                            S.inst  = 1;
-                            
-                            S.instime         = instruct_onset;
-                            S.taskName_after  = P.taskName(ST);
-                            if ST>1
-                                S.taskName_before = P.taskName(ST-1);
-                            else
-                                S.taskName_before = 'NaN';
-                            end
-                            S.instOrder = ST;
-                            
-                            S.task  = Cc.taskNum(1);
-                            S.cond  = 0;
-                            S.TN    = {Cc.condNames{1}};
-                            S.sess  = sess(r);
-                            S.deriv = 2;
-
-                            T  = addstruct(T,S);
-                    end
 
                     % Find Number of Conditions for this task (The conditions for this task have the same instruction)
                     numCond = length(find(Cc.taskNum == Cc.taskNum(ic0)));
@@ -511,62 +441,8 @@ switch what
                         S.cond  = Cc.condNum(ic0);
                         S.TN    = {Cc.condNames{ic0}};
                         S.sess  = sess(r);
-                        S.deriv = 0;
                         
                         T  = addstruct(T,S); 
-                        switch deriv
-                            case 1 
-                                % adding the row representing the temporal derivative
-                                S.SN    = s;
-                                S.run   = r;
-                                S.inst  = 0;
-                                
-                                S.instime         = 0;
-                                S.taskName_after  = 'none';
-                                S.taskName_before = 'none';
-                        
-                                S.task  = Cc.taskNum(ic0);
-                                S.cond  = Cc.condNum(ic0);
-                                S.TN    = {Cc.condNames{ic0}};
-                                S.sess  = sess(r);
-                                S.deriv = 1;
-
-                                T  = addstruct(T,S);
-                            case 2 
-                                % adding the rows for temporal and dispersion
-                                % derivatives
-                                S.SN    = s;
-                                S.run   = r;
-                                S.inst  = 0;
-                                
-                                S.instime         = 0;
-                                S.taskName_after  = 'none';
-                                S.taskName_before = 'none';
-                                
-                                S.task  = Cc.taskNum(ic0);
-                                S.cond  = Cc.condNum(ic0);
-                                S.TN    = {Cc.condNames{ic0}};
-                                S.sess  = sess(r);
-                                S.deriv = 1;
-
-                                T  = addstruct(T,S);
-
-                                S.SN    = s;
-                                S.run   = r;
-                                S.inst  = 1;
-                                
-                                S.instime         = 0;
-                                S.taskName_after  = 'none';
-                                S.taskName_before = 'none';
-                                
-                                S.task  = Cc.taskNum(ic0);
-                                S.cond  = Cc.condNum(ic0);
-                                S.TN    = {Cc.condNames{ic0}};
-                                S.sess  = sess(r);
-                                S.deriv = 2;
-
-                                T  = addstruct(T,S);
-                        end
                         
                         ic  = ic + 1;
                         ic0 = ic0 + 1;
@@ -578,14 +454,7 @@ switch what
                 J.sess(r).hpf       = inf; 
             end % run
             J.fact = struct('name', {}, 'levels', {});
-            switch deriv
-                case 0
-                    J.bases.hrf.derivs = [0 0];
-                case 1
-                    J.bases.hrf.derivs = [1 0];
-                case 2
-                    J.bases.hrf.derivs = [1 1];
-            end                                    
+            J.bases.hrf.derivs = [0 0];                                  
             J.bases.hrf.params = [4.5 11];                                  % set to [] if running wls
             J.volt             = 1;
             J.global           = 'None';
@@ -603,10 +472,9 @@ switch what
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', [3]);
         sn             = returnSubjs; %% list of subjects
         experiment_num = 1;           %% sc1 or sc2?
-        deriv          = 0;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
         glm            = 8;           %% the glm number      
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'deriv', 'glm'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm'});
                 
         % load in task information
         C     = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -691,7 +559,6 @@ switch what
                             instruct_onset = P.realStartTime(ST)- J.timing.RT*numDummys; %% get the instruction start time for the first task 
                             
                             % filling in the fields for SPM_info.mat
-                            S.deriv     = 0;              % deriv is used to identify the derivative regressors
                             S.task      = 0;              % task Number
                             S.TN        = {'Instruct'};   % task name (TN)
                             S.inst      = 1;              % is it instruction (1) or not (0)?
@@ -706,16 +573,6 @@ switch what
                                 S.taskName_before = {'NaN'};
                             end
                             T  = addstruct(T, S);
-                            % the temporal or temporal + dispersion
-                            % derivatives
-                            switch deriv
-                                case 1
-                                    S.deriv = 1;
-                                    T  = addstruct(T, S);
-                                case 2
-                                    S.deriv = 2;
-                                    T  = addstruct(T, S);
-                            end
                             
                             % filling in the fields for SPM.mat
                             J.sess(r).cond(itt).name     = 'Instruct';
@@ -742,15 +599,6 @@ switch what
                             
                             T  = addstruct(T, S);
                             
-                            switch deriv 
-                                case 1
-                                    S.deriv = 1;
-                                    T  = addstruct(T, S);
-                                case 0
-                                    S.deriv = 2;
-                                    T  = addstruct(T, S);
-                            end
-                            
                             % filling in the fields for SPM.mat
                             J.sess(r).cond(itt).name     = Tasks{it};
                             J.sess(r).cond(itt).onset    = onset;
@@ -769,14 +617,7 @@ switch what
                 J.sess(r).hpf = inf;                                        % set to 'inf' if using J.cvi = 'FAST'. SPM HPF not applied
             end % r (runs)
             J.fact = struct('name', {}, 'levels', {});
-            switch deriv
-                case 0 % no derivatives
-                    J.bases.hrf.derivs = [0 0];
-                case 1 % temporal derivative
-                    J.bases.hrf.derivs = [1 0];
-                case 2 % temporal and dispersion derivative
-                    J.bases.hrf.derivs = [1 1];
-            end % including temporal and dispersion derivatives or not?                                    
+            J.bases.hrf.derivs = [0 0];                                  
             J.bases.hrf.params = [4.5 11];                                  % set to [] if running wls
             J.volt             = 1;
             J.global           = 'None';
