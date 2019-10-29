@@ -1,7 +1,17 @@
 function [ varargout ] = sc1_sc2_mdtb( what, varargin )
 %[VARARGOUT] = SC1_SC2(WHAT, VARARGIN) This functions does every analysis
 %that can be done on the mdtb dataset.
-%   Detailed explanation goes here
+%   case 'PHYS:mdtb:...' cases used to get the physiological signals
+%   case 'GLM:mdtb:desing_glm7' design matrix with conditions modeled as
+%   separate regressors, with instructions modeled as separate regressors
+%   case 'GLM:mdtb:design_glm8' design matrix with tasks modeled as 30-sec
+%   blocks with instructions modeled as separate regressors
+%   case 'GLM:mdtb:contrast' case used to get the contrasts
+%   case 'GLM:mdtb:contrast_tasks' same as the previous case but it will be
+%   used with glm7 (the glm with conditions modeled as separate regressors)
+%   case 'SURF:mdtb:map_con' case used to map contrasts to the surface
+%   case 'SURF:mdtb:groupmap_con' case used to get the group map for the
+%   contrasts.
 
 numDummys = 3;   % number of dummy scans per run
 numTRs    = 601; % number of scans per run
@@ -14,7 +24,6 @@ baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 behavDir     ='/data';                  %% behavioral data directory.
 suitDir      = 'suit';                  %% directory where the anatomicals used in creating flatmaps are stored.
 regDir       = 'RegionOfInterest';      %% The ROI directory 
-wbDir        = 'surfaceWb';
 
 suitToolDir  = '/Users/ladan/Documents/MATLAB/suit';
 
@@ -285,6 +294,7 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
+        
         sn             = returnSubjs; %% list of subjects
         experiment_num = 1;           %% sc1 or sc2?
         glm            = 7;           %% the glm number      
@@ -657,6 +667,7 @@ switch what
             
             fprintf('******************** glm%d parameters estimated for %s ********************\n\n', glm, subj_name{s});
         end %sn        
+    
     case 'GLM:mdtb:contrast'
         %%% Calculating contrast images.
         % 'SPM_light' is created in this step (xVi is removed as it slows
