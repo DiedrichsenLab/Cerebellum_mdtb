@@ -232,7 +232,7 @@ switch what
                 for sca = scan
                     
                     X     = SPM.xX.X(1:598, 1:end - 16);                                        % discarding the intercepts
-                    ind   = ((T.sess == ss) & (T.run == sca) & (T.inst == 1) & (T.deriv == 0)); % get the indices for run1, instructions, non-derivatives
+                    ind   = ((T.sess == ss) & (T.run == sca) & (T.inst == 1) ); % get the indices for run1, instructions, non-derivatives
                     X_ind = X(:, ind);                                                          
                     X_reg = [zeros(3, 16); X_ind];                                              % My design matrix, adding zeros for dummies!
                     % load in HRV and RVT regressors
@@ -588,7 +588,6 @@ switch what
                             onset = P.realStartTime(ST) - J.timing.RT*numDummys +announceTime;
                             
                             % filling in the fields for SPM_info.mat
-                            S.deriv     = 0;
                             S.task      = it;
                             S.TN        = {Tasks{it}};
                             S.inst      = 0;
@@ -697,7 +696,7 @@ switch what
                 switch con_vs
                     case 'rest_task' % contrast against rest
                         con                                  = zeros(1,size(SPM.xX.X,2));
-                        con(:,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1;
+                        con(:,logical(T.(which) == ucondition(tt))) = 1;
                         tmp = zeros(1, size(SPM.xX.X, 2));
                         tmp(:, strcmp(T.TN, 'rest')) = 1;
                         sum_rest = sum(tmp);
@@ -706,18 +705,18 @@ switch what
                         con(:, tmp~=0) = -1/sum_rest;
                     case 'average_1' % contrast against the average of the other tasks including the instructions
                         % New: Eva, Oct 2nd
-                        con        = zeros(1,size(SPM.xX.X, 2));
-                        con(1,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1./sum(logical((T.(which) == ucondition(tt)) .* (T.deriv == 0)));
-                        con(1,logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0)));
+                        con                     = zeros(1,size(SPM.xX.X, 2));
+                        con(1,logical(T.(which) == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));
+                        con(1,logical(T.(which) ~= ucondition(tt))) = -1./sum(logical(T.(which) ~= ucondition(tt)));
                     case 'average_2' % contrast against the average of the other tasks not including the instructions
                         con        = zeros(1,size(SPM.xX.X, 2));
                         % TO TRY below - no instructions as contrasts
-                        con(1,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1./sum(logical((T.(which) == ucondition(tt)) .* (T.deriv == 0)));
-                        con(1,logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0) .* (T.inst == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.deriv == 0) .* (T.inst == 0)));
+                        con(1,logical(T.(which) == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));
+                        con(1,logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0)));
                     case 'rest'
-                        con                                  = zeros(1,size(SPM.xX.X,2));
-                        con(:,logical((T.(which) == ucondition(tt)) .* (T.deriv == 0))) = 1;
-                        con                                  = con/abs(sum(con));
+                        con                     = zeros(1,size(SPM.xX.X,2));
+                        con(:,logical(T.(which) == ucondition(tt))) = 1;
+                        con                     = con/abs(sum(con));
                 end
                 
                 name = sprintf('%s-%s',char(unique(T.TN(T.(which) == ucondition(tt)))), con_vs);
@@ -769,19 +768,17 @@ switch what
             
             SPM  = rmfield(SPM,'xCon');
             T    = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
-            T_rd = getrow(T, T.deriv == 0);
             
             % t contrast for tasks
-            utask = unique(T_rd.task);
+            utask = unique(T.task);
             
             idx = 1;
             for tt = 1:length(utask) % 0 is "instruct" regressor
                 switch con_vs
                     case 'rest' % contrast against rest
-                        con                                = zeros(1,size(SPM.xX.X,2));
-%                         con(:,T_rd.task == utask(tt))      = 1;
-                        con(:,logical((T.task == utask(tt)) .* (T.deriv == 0))) = 1;
-                        con                                = con/abs(sum(con));
+                        con                  = zeros(1,size(SPM.xX.X,2));
+                        con(:,logical(T.task == utask(tt))) = 1;
+                        con                  = con/abs(sum(con));
                     case 'average' % contrast against the average of all the tasks or all the other tasks???
                         con                                = zeros(1,size(SPM.xX.X,2));
                         con(:,T_rd.task == task(tt))       = 1;
@@ -789,13 +786,13 @@ switch what
                         con                                = bsxfun(@minus, con, 1/length(T.cond));
                     case 'average_1' % contrast vs the average of all the tasks
                         con        = zeros(1,size(SPM.xX.X, 2));
-                        con(1,logical((T.task == utask(tt)) .* (T.deriv == 0))) = 1./sum(logical((T.task == utask(tt)) .* (T.deriv == 0)));
-                        con(1,logical((T.task ~= utask(tt)) .* (T.deriv == 0))) = -1./sum(logical((T.task ~= utask(tt)) .* (T.deriv == 0)));
+                        con(1,logical(T.task == utask(tt))) = 1./sum(logical(T.task == utask(tt)));
+                        con(1,logical(T.task ~= utask(tt))) = -1./sum(logical(T.task ~= utask(tt)));
                     case 'average_2' % contrast vs average of all the tasks except for instructions
                         con        = zeros(1,size(SPM.xX.X, 2));
                         % TO TRY below - no instructions as contrasts
-                        con(1,logical((T.task == utask(tt)) .* (T.deriv == 0))) = 1./sum(logical((T.task == utask(tt)) .* (T.deriv == 0)));
-                        con(1,logical((T.task ~= utask(tt)) .* (T.deriv == 0) .* (T.inst == 0))) = -1./sum(logical((T.task ~= utask(tt)) .* (T.deriv == 0) .* (T.inst == 0)));
+                        con(1,logical(T.task == utask(tt))) = 1./sum(logical(T.task == utask(tt)));
+                        con(1,logical(T.task ~= utask(tt) .* (T.inst == 0))) = -1./sum(logical((T.task ~= utask(tt)) .* (T.inst == 0)));
                 end
                 % fix the name!!!!!!!!!!!!!!!!
                 name = sprintf('%s-%s_taskCon',char(unique(Cc.taskNames(Cc.taskNum == utask(tt)))), con_vs);
@@ -846,8 +843,7 @@ switch what
             dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
             
             T  = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
-            Td = getrow(T, T.deriv == 0); %% get the non-derivative regressor names
-            conNames = unique(Td.TN);
+            conNames = unique(T.TN);
             for h = 1:2 % two hemispheres
                 white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
                 pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
