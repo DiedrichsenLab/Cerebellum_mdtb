@@ -207,21 +207,16 @@ switch what
         % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
         sn         = 24;
         experiment_num = 1; 
-        ppmethod   = '';
         glm        = 7;
         sess       = 1:2;
         scan       = 1:8;
         
-        vararginoptions(varargin, {'sn', 'experiment_num', 'ppmethod', 'glm', 'sess', 'scan'});
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'sess', 'scan'});
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        % GLM directory
+        glmDir    = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         PhysioDir = fullfile(baseDir, 'Physio');
         
         for s = sn
@@ -290,13 +285,12 @@ switch what
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
-        sn            = returnSubjs; %% list of subjects
-        experiment_num    = 1;           %% sc1 or sc2?
-        ppmethod      = '';          %% 'stc' or ''? The default is set to ''
-        deriv         = 1;           %% 'temp', 'temp_disp', or 'none'?
-        glm           = 72;           %% the glm number      
+        sn             = returnSubjs; %% list of subjects
+        experiment_num = 1;           %% sc1 or sc2?
+        deriv          = 0;           %% 'temp', 'temp_disp', or 'none'?
+        glm            = 7;           %% the glm number      
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'ppmethod', 'deriv', 'glm'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'deriv', 'glm'});
         
         announceTime = 5;
                 
@@ -307,16 +301,9 @@ switch what
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% SPM and SPM_info files will be saved in glmDir
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-                imDir  = 'imaging_data';
-                prefix = 'r';
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-                imDir  = 'imaging_data_stc';
-                prefix = 'ra';
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        imDir  = 'imaging_data';
+        prefix = 'r';
         dircheck(glmDir)
         
         for s = sn
@@ -333,14 +320,8 @@ switch what
             J.dir            = {glmSubjDir};
             J.timing.units   = 'secs';
             J.timing.RT      = 1.0;
-            switch ppmethod
-                case 'stc'
-                    J.timing.fmri_t  = 48; %% there are 48 slices
-                    J.timing.fmri_t0 = 24; %% set it to the middle slice
-                case ''
-                    J.timing.fmri_t  = 16; 
-                    J.timing.fmri_t0 = 1; %% set it to the middle slice
-            end
+            J.timing.fmri_t  = 16; 
+            J.timing.fmri_t0 = 1; %% set it to the middle slice
             
             % from Maedbh code: annoying but reorder behavioural runs slightly for 2
             % subjects...
@@ -620,13 +601,12 @@ switch what
         end        
     case 'GLM:mdtb:design_glm8' % GLM with each task modeled as a 30 sec block regressor
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', [3]);
-        sn            = returnSubjs; %% list of subjects
-        experiment_num    = 1;           %% sc1 or sc2?
-        ppmethod      = '';          %% 'stc' or ''? The default is set to ''
-        deriv         = 1;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
-        glm           = 8;          %% the glm number      
+        sn             = returnSubjs; %% list of subjects
+        experiment_num = 1;           %% sc1 or sc2?
+        deriv          = 0;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
+        glm            = 8;           %% the glm number      
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'ppmethod', 'deriv', 'glm'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'deriv', 'glm'});
                 
         % load in task information
         C     = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -640,16 +620,9 @@ switch what
         announceTime = 5; % there is a 5 sec interval between instruction onset and task onset.
         
         %%% SPM and SPM_info files will be saved in glmDir
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-                imDir  = 'imaging_data';
-                prefix = 'r';
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-                imDir  = 'imaging_data_stc';
-                prefix = 'ra';
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        imDir  = 'imaging_data';
+        prefix = 'r';
         dircheck(glmDir)
         
         for s = sn 
@@ -668,14 +641,8 @@ switch what
             J.dir            = {glmSubjDir};
             J.timing.units   = 'secs';
             J.timing.RT      = 1.0;
-            switch ppmethod
-                case 'stc'
-                    J.timing.fmri_t  = 48; %% there are 48 slices
-                    J.timing.fmri_t0 = 24; %% set it to the middle slice
-                case ''
-                    J.timing.fmri_t  = 16;
-                    J.timing.fmri_t0 = 1; %% set it to the middle slice
-            end
+            J.timing.fmri_t  = 16;
+            J.timing.fmri_t0 = 1; %% set it to the middle slice
             
             % from Maedbh code: annoying but reorder behavioural runs slightly for 2
             % subjects...
@@ -827,22 +794,16 @@ switch what
         %%% This is time consuming, but I run it to get the whitening
         %%% filter that will then be applied to the time series.
         % Example: sc1_sc2_mdtb('GLM:mdtb:run_glm', 'sn', [2])
-        sn         = returnSubjs;   %% list of subjects
-        glm        = 8;            %% The glm number :)
+        sn             = returnSubjs;   %% list of subjects
+        glm            = 8;         %% The glm number :)
         experiment_num = 1;
-        ppmethod   = '';            %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'ppmethod'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num'})
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
 
         %%% setting the directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         for s = sn
             
@@ -868,24 +829,18 @@ switch what
         % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [2], 'glm', 9, 'which', 'task')
         % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
-        sn         = returnSubjs;        %% list of subjects
-        glm        = 7;           %% The glm number :)
+        sn             = returnSubjs;        %% list of subjects
+        glm            = 7;              %% The glm number :)
         experiment_num = 1;
-        ppmethod   = '';          %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
-        con_vs     = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
-        which      = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
+        con_vs         = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
+        which          = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'ppmethod', 'con_vs', 'which'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'which'})
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% setting directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         for s = sn
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
@@ -951,13 +906,12 @@ switch what
         % the average of the beta values for the conditions of a task
         % Example: sc1_sc2_mdtb('GLM:mdtb:contrast_task', 'sn', [3])
         
-        sn         = returnSubjs;        %% list of subjects
-        glm        = 72;           %% The glm number :)
+        sn             = returnSubjs;  %% list of subjects
+        glm            = 7;            %% The glm number :)
         experiment_num = 1;
-        ppmethod   = '';          %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
-        con_vs     = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
+        con_vs         = 'average_1';  %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'ppmethod', 'con_vs'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs'})
         
         % gt the task info
         C   = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -966,12 +920,7 @@ switch what
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% setting directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         for s = sn
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
@@ -1034,25 +983,19 @@ switch what
         % to the workbench surface.
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [3])
     
-        sn         = returnSubjs;        %% list of subjects
-        ppmethod   = '';          %% with or without stc
-        atlas_res  = 32;          %% set it to 32 or 164
+        sn             = returnSubjs; %% list of subjects
+        atlas_res      = 32;          %% set it to 32 or 164
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
-        glm        = 8;           %% glm number
-        con_vs     = 'average_1'; %% set it to 'rest' or 'average'
+        glm            = 7;           %% glm number
+        con_vs         = 'average_1'; %% set it to 'rest' or 'average'
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-                wbDir  = 'surfaceWB';
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-                wbDir  = 'surfaceWB_stc';
-        end
+        % setting glm and surfaceWB directory
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        wbDir  = 'surfaceWB';
         glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
         dircheck(glmSurfDir);
         
@@ -1089,29 +1032,23 @@ switch what
         % WorkBench surface
         % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_task', 'sn', [3])
     
-        sn         = returnSubjs;        %% list of subjects
-        ppmethod   = '';          %% with or without stc
-        atlas_res  = 32;          %% set it to 32 or 164
+        sn             = returnSubjs; %% list of subjects
+        atlas_res      = 32;          %% set it to 32 or 164
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
-        glm        = 72;           %% glm number
-        con_vs     = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2'
+        glm            = 7;           %% glm number
+        con_vs         = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2'
         
         % gt the task info
         C   = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
         Cc  = getrow(C,C.StudyNum == experiment_num);
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-                wbDir  = 'surfaceWB';
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-                wbDir  = 'surfaceWB_stc';
-        end
+        % setting glmDir and surfaceWB directory
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        wbDir  = 'surfaceWB';
         glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
         dircheck(glmSurfDir);
         
@@ -1149,18 +1086,17 @@ switch what
         % creates group average contrast maps for task contrasts
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con', 'sn', [3])
     
-        sn         = returnSubjs;   %% list of subjects
-        ppmethod   = '';     %% with or without stc
-        atlas_res  = 32;     %% set it to 32 or 164
-        experiment_num = 1;      %% enter 1 for sc1 and 2 for sc2
-        glm        = 8;      %% glm number
-        replaceNaN = 1;      %% replacing NaNs
-        con_vs     = 'average_1'; %% contrast was calculated against 'rest' or 'average'        
-        smooth     = 1;      %% add smoothing
-        kernel     = 1;      %% for smoothing
-        which      = 'task'; %% 'task' for glm8 and 'cond' for glm7
+        sn             = returnSubjs; %% list of subjects
+        atlas_res      = 32;          %% set it to 32 or 164
+        experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
+        glm            = 8;           %% glm number
+        replaceNaN     = 1;           %% replacing NaNs
+        con_vs         = 'average_1'; %% contrast was calculated against 'rest' or 'average'        
+        smooth         = 1;           %% add smoothing
+        kernel         = 1;           %% for smoothing
+        which          = 'task';      %% 'task' for glm8 and 'cond' for glm7
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment_num', 'glm', 'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which'});
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1174,12 +1110,8 @@ switch what
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                wbDir  = 'surfaceWB';
-            case 'stc'
-                wbDir  = 'surfaceWB_stc';
-        end
+        % setting directoriese
+        wbDir  = 'surfaceWB';
         
         % go to the directory where fs_LR atlas is.
         groupSurfDir     = fullfile(baseDir, experiment, wbDir, 'data', sprintf('group%dk', atlas_res));
@@ -1229,17 +1161,16 @@ switch what
         % creates group average contrast maps for task contrasts
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_task', 'sn', [3])
     
-        sn         = returnSubjs;   %% list of subjects
-        ppmethod   = '';     %% with or without stc
-        atlas_res  = 32;     %% set it to 32 or 164
+        sn             = returnSubjs;   %% list of subjects
+        atlas_res      = 32;     %% set it to 32 or 164
         experiment_num = 1;      %% enter 1 for sc1 and 2 for sc2
-        glm        = 8;      %% glm number
-        replaceNaN = 1;      %% replacing NaNs
-        con_vs     = 'rest'; %% contrast was calculated against 'rest' or 'average'        
-        smooth     = 1;      %% add smoothing
-        kernel     = 1;      %% for smoothing
+        glm            = 8;      %% glm number
+        replaceNaN     = 1;      %% replacing NaNs
+        con_vs         = 'rest'; %% contrast was calculated against 'rest' or 'average'        
+        smooth         = 1;      %% add smoothing
+        kernel         = 1;      %% for smoothing
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'atlas_res', 'experiment_num', 'glm', 'replaceNaN', 'con_vs', 'smooth', 'kernel'});
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'replaceNaN', 'con_vs', 'smooth', 'kernel'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1248,12 +1179,8 @@ switch what
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                wbDir  = 'surfaceWB';
-            case 'stc'
-                wbDir  = 'surfaceWB_stc';
-        end
+        % setting directory paths
+        wbDir  = 'surfaceWB';
         
         % go to the directory where fs_LR atlas is.
         groupSurfDir     = fullfile(baseDir, experiment, wbDir, 'data', sprintf('group%dk', atlas_res));
@@ -1304,12 +1231,12 @@ switch what
         % maps each atlas of the suit into individual space
         % Example: sc1_sc2_mdtb('SUIT:mdtb:suit_parcel2native', 'sn', [3])
         
-        sn         = returnSubjs;
-        parcelType = 'Buckner_7';                         %% set it to Buckner_7 or Buckner_17
-        parcelDir  = fullfile(suitToolDir, 'atlasesSUIT'); %% directory where the nifti image is stored
+        sn             = returnSubjs;
+        parcelType     = 'Buckner_7';                          %% set it to Buckner_7 or Buckner_17
+        parcelDir      = fullfile(suitToolDir, 'atlasesSUIT'); %% directory where the nifti image is stored
         experiment_num = 1;
         
-        vararginoptions(varargin, {'sn', 'parcelType', 'parcelDir', 'experiment_num', 'ppmethod'});
+        vararginoptions(varargin, {'sn', 'parcelType', 'parcelDir', 'experiment_num'});
         
         experiment = sprintf('sc%d', experiment_num);
                 
@@ -1332,27 +1259,20 @@ switch what
         % this case to map all the contrast maps to suit space.
         % Example: sc1_sc2_mdtb('SUIT:mdtb:reslice', 'sn', [3])
         
-        sn         = returnSubjs;                   %% list of subjects
-        ppmethod   = '';                     %% with or without stc
+        sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type       = 'con';                  %% enter the image you want to reslice to suit space
-        glm        = 7;                      %% glm number
-        mask       = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
+        type           = 'con';                  %% enter the image you want to reslice to suit space
+        glm            = 7;                      %% glm number
+        mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'experiment_num', 'glm', 'type', 'mask'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir        = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-                imageDir      = fullfile(baseDir, experiment, 'imaging_data');
-                glmSuitDir    = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
-            case 'stc'
-                glmDir        = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-                imageDir      = fullfile(baseDir, experiment, 'imaging_data_stc');
-                glmSuitDir    = fullfile(baseDir, experiment, suitDir, sprintf('glm%d_stc', glm));
-        end
+        % setting directories
+        glmDir        = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        imageDir      = fullfile(baseDir, experiment, 'imaging_data');
+        glmSuitDir    = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
         dircheck(glmSuitDir);
         
         for s = sn
@@ -1408,12 +1328,8 @@ switch what
                     imageSubjDir = fullfile(imageDir, subj_name{s});
                     outDir       = fullfile(baseDir, experiment, suitDir, 'imaging_data_resliced', subj_name{s});
                     dircheck(outDir);
-                    switch ppmethod
-                        case ''
-                            images    = 'rrun';
-                        case 'stc'
-                            images    = 'rarun';
-                    end % switch ppmethod
+                    
+                    images    = 'rrun';
                     
                     % there are 598 time points (images) that need to be
                     % resliced to the suit space.
@@ -1453,13 +1369,12 @@ switch what
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_cond', 'sn', [3]);
         
         sn         = returnSubjs;                   %% list of subjects
-        ppmethod   = '';                     %% with or without stc
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
         type       = 'con';                  %% enter the image you want to reslice to suit space
         glm        = 7;                      %% glm number
         con_vs     = 'rest';                 %% is the contrast calculated vs 'rest' or 'average'
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'experiment_num', 'glm', 'type', 'mask'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1468,14 +1383,9 @@ switch what
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
-                glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm), 'group');
-            case 'stc'
-                glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d_stc', glm));
-                glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d_stc', glm), 'group');
-        end
+        % Setting directories
+        glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
+        glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm), 'group');
         dircheck(glmSuitDir);
         dircheck(glmSuitGroupDir);
         
@@ -1523,13 +1433,12 @@ switch what
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_task', 'sn', [3]);
         
         sn         = returnSubjs;                   %% list of subjects
-        ppmethod   = '';                     %% with or without stc
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
         type       = 'con';                  %% enter the image you want to reslice to suit space
         glm        = 7;                      %% glm number
         con_vs     = 'rest';                 %% is the contrast calculated vs 'rest' or 'average'
         
-        vararginoptions(varargin,{'sn', 'ppmethod', 'experiment_num', 'glm', 'type', 'mask'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1538,14 +1447,9 @@ switch what
         
         experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
-                glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm), 'group');
-            case 'stc'
-                glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d_stc', glm));
-                glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d_stc', glm), 'group');
-        end
+        % setting directories
+        glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
+        glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm), 'group');
         dircheck(glmSuitDir);
         dircheck(glmSuitGroupDir);
         
