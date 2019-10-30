@@ -17,8 +17,8 @@ numDummys = 3;   % number of dummy scans per run
 numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
-baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
-% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+% baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
+baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 
 %%% setting directory names
@@ -97,7 +97,7 @@ switch what
         % have the log files!
         % Example: sc1_sc2_mdtb('PHYS:mdtb:get_reg', 'sn', 26)
         
-        sn   = [24, 25, 26, 27, 28, 30, 31];
+        sn   = [24, 25, 26, 27, 28];
         sess = 1:2;
         scan = 1:8;
         
@@ -206,17 +206,23 @@ switch what
                     
                     % Run physiological recording preprocessing and noise modeling
                     [~, R, ~] = tapas_physio_main_create_regressors(physio);
-                    save(fullfile(outDir, sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, ss, sca)), 'R', '-v7.3')
+                    
+                    if ss == 2
+                        sca_ind = sca + 8;
+                    elseif ss == 1
+                        sca_ind = sca;
+                    end
+                    save(fullfile(outDir, sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, ss, sca_ind)), 'R', '-v7.3')
                     close all
-                    keyboard;
-                    fprintf('\n********** Physio regressors extracted for %s sess %d scan %d **********\n', subj_name{s}, ss, sca);
+%                     keyboard;
+                    fprintf('\n********** Physio regressors extracted for %s sess %d scan %d **********\n', subj_name{s}, ss, sca_ind);
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
     case 'PHYS:mdtb:lin_reg' % regresses HRV and RVT on the regressor(s) for instructions
         %%% uses one subject
         % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
-        sn             = 24;
+        sn             = [24, 25, 26, 27, 28];
         experiment_num = 1; 
         glm            = 7;
         sess           = 1:2;
@@ -233,7 +239,8 @@ switch what
         for s = sn
             
             % load in the SPM file (This could take a while)
-            load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
+%             load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
+            load(fullfile(PhysioDir, 'X.mat'));
             
             % load in SPM_info file
             T      = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
@@ -242,12 +249,20 @@ switch what
             for ss = sess
                 for sca = scan
                     
-                    X     = SPM.xX.X(1:598, 1:end - 16);                                        % discarding the intercepts
-                    ind   = ((T.sess == ss) & (T.run == sca) & (T.inst == 1) ); % get the indices for run1, instructions, non-derivatives
-                    X_ind = X(:, ind);                                                          
+                    X_run1     = X(1:598, 1:end - 16);                                        % discarding the intercepts
+                    Xuse       = X_run1;
+                    
+                    if ss == 2
+                        sca_ind = sca + 8;
+                    elseif ss == 1
+                        sca_ind = sca;
+                    end
+                    
+                    ind   = ((T.sess == ss) & (T.run == sca_ind) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
+                    X_ind = Xuse(:, ind);                                                          
                     X_reg = [zeros(3, 16); X_ind];                                              % My design matrix, adding zeros for dummies!
                     % load in HRV and RVT regressors
-                    load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca)));
+                    load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca_ind)));
                     
                     HRV = physio.model.R(:, 1);
                     RVT = physio.model.R(:, 2);
