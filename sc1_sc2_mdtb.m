@@ -61,7 +61,7 @@ hemName = {'CortexLeft', 'CortexRight'};
 
 warning('off')
 switch what
-    case 'PHYS:mdtb:get_log' % creates log files for RESP and PULS
+    case 'PHYS:mdtb:get_log'    % creates log files for RESP and PULS
         % use the function extractCMRRPhysio.m to get the log files from
         % the dcm file.
         % Example: sc1_sc2_mdtb('PHYS:mdtb:get_log', 'sn', 26, 'sess', 1, 'scan', 3)
@@ -90,7 +90,7 @@ switch what
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
-    case 'PHYS:mdtb:get_reg' % creates a text file for PULS and RESP regressors
+    case 'PHYS:mdtb:get_reg'    % creates a text file for PULS and RESP regressors
         % using tapas latest version to get the regressors for
         % physiological signals using the example code that Suzanne
         % provided. Have to run 'PHYS:mdtb:get_log' if you don't already
@@ -219,7 +219,7 @@ switch what
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
-    case 'PHYS:mdtb:lin_reg' % regresses HRV and RVT on the regressor(s) for instructions
+    case 'PHYS:mdtb:lin_reg'    % regresses HRV and RVT on the regressor(s) for instructions
         %%% uses one subject
         % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
         sn             = [24, 25, 26, 27, 28];
@@ -238,29 +238,32 @@ switch what
         
         for s = sn
             
+            % construct the design matrix with each instructions modeled as
+            % a separate regressor
+            % all the design matrix are the same so crating it using one
+            % session and run would be enough
             % load in the SPM file (This could take a while)
 %             load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
             load(fullfile(PhysioDir, 'X.mat'));
             
+            X_run1     = X(1:598, 1:end - 16);                                        % discarding the intercepts
+            Xuse       = X_run1;
+            
             % load in SPM_info file
-            T      = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            T     = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            ind   = ((T.sess == 1) & (T.run == 1) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
+            X_ind = Xuse(:, ind);
+            X_reg = [zeros(3, 16); X_ind];
             
             phys_cell = cell(length(sess), length(scan)); % preallocating the cell mat that will have all the linear reg results for a subject
             for ss = sess
                 for sca = scan
-                    
-                    X_run1     = X(1:598, 1:end - 16);                                        % discarding the intercepts
-                    Xuse       = X_run1;
-                    
                     if ss == 2
                         sca_ind = sca + 8;
                     elseif ss == 1
                         sca_ind = sca;
                     end
                     
-                    ind   = ((T.sess == ss) & (T.run == sca_ind) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
-                    X_ind = Xuse(:, ind);                                                          
-                    X_reg = [zeros(3, 16); X_ind];                                              % My design matrix, adding zeros for dummies!
                     % load in HRV and RVT regressors
                     load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca_ind)));
                     
@@ -299,14 +302,43 @@ switch what
                     physio_reg.rint1_rvt  = rint1_rvt;
                     physio_reg.stats1_rvt = stats1_rvt;
                     
-                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca)), 'physio_reg', '-v7.3');
+                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca_ind)), 'physio_reg', '-v7.3');
                     
-                    phys_cell{ss, sca} = physio_reg;
+                    phys_cell{ss, sca_ind} = physio_reg;
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
         varargout{1} = phys_cell;
-    
+    case 'PHYS:mdtb:linReg_df'  % creates a dataframe which can be used for visualizations later
+        % Example: sc1_sc2_mdtb('PHYS:mdtb:linReg_df')
+        
+        sn   = [24, 25, 26, 27, 28];
+        scan = 1:16;
+        
+        vararginoptions(varargin, {'sn', 'scan'});
+        
+        PhysDir = fullfile(baseDir, 'Physio');
+        b_reg = [];
+        S = [];
+        for s = sn
+            S.sn = s;
+            b_hrv = zeros(16, 16); 
+            b_rvt = zeros(16, 16);
+            for sca = scan
+                % load in the .mat file for the subject
+                a = dir(fullfile(PhysDir, subj_name{s}, sprintf('*scan%d_lin_reg.mat', sca)));
+                load(fullfile(PhysDir, subj_name{s}, a.name));
+                b_hrv(sca, :) = physio_reg.b_hrv;
+                b_rvt(sca, :) = physio_reg.b_rvt;
+            end % sca (scan)
+            S.b_hrv{1} = b_hrv;
+            S.b_rvt{1} = b_rvt;
+                   
+            b_reg = addstruct(b_reg, S);
+        end % s (sn)
+        save(fullfile(PhysDir, 'linReg_model.mat'), 'b_reg', '-v7.3')
+        varargout{1} = b_reg;
+        
     case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regressor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
