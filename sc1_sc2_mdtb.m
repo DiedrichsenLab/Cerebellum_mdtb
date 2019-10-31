@@ -18,8 +18,8 @@ numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
 % baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
-baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
-% baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
+% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -357,7 +357,7 @@ switch what
             sub_df = getrow(b_reg, b_reg.sn == s);
             dircheck(fullfile(PhysFigDir, subj_name{s}));
             
-            for ireg = 2:17 % the first one is the intercept                
+            for ireg = 2:17 % the first one is the intercept
                 for physParam = 1:2 % there are two physio param for which I'm doing the linear reg model
                     var = sub_df.(sprintf('%s_b', params{physParam}))(:, ireg);
                     figure; plot(var, '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b',...
@@ -417,6 +417,8 @@ switch what
                     
                 savefig(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.fig', params{physParam}, ireg)));
                 saveas(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.png', params{physParam}, ireg)));
+                
+                close all
             end % physParams
         end % ireg (regressors)
 
