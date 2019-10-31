@@ -334,6 +334,63 @@ switch what
         end % s (sn)
         save(fullfile(PhysDir, 'linReg_model.mat'), 'b_reg', '-v7.3')
         varargout{1} = b_reg;
+    case 'PHYS:mdtb:linReg_viz' % visualizing the results of linear regression
+        % Example: sc1_sc2_mdtb('PHYS:mdtb:linReg_viz')
+        
+        sn   = [24, 25, 26, 27, 28];
+        scan = 1:16;
+        
+        vararginoptions(varargin, {'sn', 'scan'})
+        
+        PhysDir    = fullfile(baseDir, 'Physio');
+        PhysFigDir = fullfile(PhysDir, 'figure');
+        dircheck(PhysFigDir);
+        % load in the dataframe
+        load(fullfile(PhysDir, 'linReg_model.mat'));
+        
+        % plots for each subject
+        for s = sn 
+            sub_df = getrow(b_reg, b_reg.sn == s);
+            
+            dircheck(fullfile(PhysFigDir, subj_name{s}));
+            
+            % there are 16 different instructions regressors!
+            for ireg = 2:17 % the first one is the intercept
+                % do the plot for hrv
+                figure; plot(sub_df.hrv_b(:, ireg), '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b',...
+                    'MarkerEdgeColor', 'b');
+                xlabel('run')
+                ylabel('Beta coefficient');
+                
+                % put a star on top of betas that are significant
+                hold on
+                % plot a horizental line showing the y = 0
+                y = zeros(1, 16);
+                plot(y, 'g', 'LineWidth', 1.5);
+                
+                %%% find significant betas 
+                a = sub_df.hrv_p(:, ireg) < 0.05;
+%                 y(a) = 0.02;
+%                 y(~a) = NaN;
+%                 
+                x = sub_df.hrv_b(:, ireg);
+                x(~a) = NaN;
+
+                hold on
+                plot(x, 'r*', 'MarkerSize', 10);
+
+                title(sprintf('Beta %d vs run for %s', ireg, subj_name{s}));
+                
+                h = gcf;
+                
+                savefig(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_Beta%d_vs_run.fig', subj_name{s}, ireg)));
+                saveas(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_Beta%d_vs_run.png', subj_name{s}, ireg)));
+                close all;
+            end % ireg (regressors)
+            
+        end % s (sn)
+        
+        
         
     case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regressor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
