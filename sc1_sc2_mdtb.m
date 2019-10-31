@@ -726,7 +726,7 @@ switch what
         % regressor and a regressor for each of the instructions. GLM 8 was
         % written with each task modeled as a 30 sec block and instructions
         % modeled as a separate regressor.
-        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [2], 'glm', 9, 'which', 'task')
+        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [12, 14, 15], 'glm', 8, 'which', 'task')
         % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
         sn             = returnSubjs;        %% list of subjects
@@ -1005,6 +1005,11 @@ switch what
                 conNames = unique(Cc.condNames);
         end %% do you want the group maps for tasks or conditions
         
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
+        
         experiment = sprintf('sc%d', experiment_num);
         
         % setting directoriese
@@ -1020,28 +1025,21 @@ switch what
             for cc = 1:length(conNames)
                 for s = 1:length(sn)
                     %%% make the group metric file for each contrasts
-%                     infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
                     infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
                     
                     if smooth
                         surfFile    = fullfile(groupSurfDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
                         surf_smooth(infilenames{s},'surf',surfFile,'kernel',kernel); % smooth outfilenames - it will prefix an 's'
                     end
-%                     s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
                     s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
                 
                 end % sn
-%                 outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
-%                 summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
-                
                 outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s.func.gii',hemI{h},conNames{cc}, con_vs));
                 summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s.func.gii',hemI{h},conNames{cc}, con_vs));
                 
                 surf_groupGiftis(infilenames, 'outfilenames', {outfilenames}, 'groupsummary', summaryname, 'replaceNaNs', replaceNaN);
                 if smooth % also save the smoothed versions
-%                     s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
                     s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
-%                     s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
                     s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
                     surf_groupGiftis(s_infilenames, 'outfilenames', {s_outfilenames}, 'groupsummary', s_summaryname, 'replaceNaNs', replaceNaN);
                 end
@@ -1159,7 +1157,7 @@ switch what
         sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
         type           = 'con';                  %% enter the image you want to reslice to suit space
-        glm            = 7;                      %% glm number
+        glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
@@ -1259,24 +1257,35 @@ switch what
 %         suit_plotflatmap(D, 'cmap', colormap(jet(256)), 'cscale', [-3, 3]);
 %         caxis([-3, 3]);
 %         colorbar;
-    case 'SUIT:mdtb:groupmap_con_cond'
+    case 'SUIT:mdtb:groupmap_con'
         % creates group average for the condition contrast maps.
         % you need to reslice all the images to suit space before running
         % this case
-        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_cond', 'sn', [3]);
+        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con', 'sn', [3]);
         
-        sn         = returnSubjs;                   %% list of subjects
-        experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type       = 'con';                  %% enter the image you want to reslice to suit space
-        glm        = 7;                      %% glm number
-        con_vs     = 'rest';                 %% is the contrast calculated vs 'rest' or 'average'
+        sn             = returnSubjs;        %% list of subjects
+        experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
+        type           = 'con';              %% enter the image you want to reslice to suit space
+        glm            = 7;                  %% glm number
+        con_vs         = 'average_1';        %% is the contrast calculated vs 'rest' or 'average'
+        which          = 'task';             %% you may choose 'cond' or 'task'
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
         Cc       = getrow(C, C.StudyNum == experiment_num);
-        conNames = unique(Cc.condNames);
+        switch which
+            case 'task' % task for glm8
+                conNames = unique(Cc.taskNames);
+            case 'cond' % condition for glm7
+                conNames = unique(Cc.condNames);
+        end %% do you want the group maps for tasks or conditions
+        
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
         
         experiment = sprintf('sc%d', experiment_num);
         
