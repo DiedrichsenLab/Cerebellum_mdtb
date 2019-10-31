@@ -335,12 +335,12 @@ switch what
         save(fullfile(PhysDir, 'linReg_model.mat'), 'b_reg', '-v7.3')
         varargout{1} = b_reg;
     case 'PHYS:mdtb:linReg_viz' % visualizing the results of linear regression
+        % two different types of plots are created.
         % Example: sc1_sc2_mdtb('PHYS:mdtb:linReg_viz')
         
         sn   = [24, 25, 26, 27, 28];
-        scan = 1:16;
         
-        vararginoptions(varargin, {'sn', 'scan'})
+        vararginoptions(varargin, {'sn'})
         
         PhysDir    = fullfile(baseDir, 'Physio');
         PhysFigDir = fullfile(PhysDir, 'figure');
@@ -348,50 +348,78 @@ switch what
         % load in the dataframe
         load(fullfile(PhysDir, 'linReg_model.mat'));
         
-        % plots for each subject
+        params = {'hrv', 'rvt'};
+        
+        nSub_phys = 5; %% I only have data for 5 subjects
+
+        % plot type 1: beta vs run for each subject
         for s = sn 
             sub_df = getrow(b_reg, b_reg.sn == s);
-            
             dircheck(fullfile(PhysFigDir, subj_name{s}));
             
-            % there are 16 different instructions regressors!
-            for ireg = 2:17 % the first one is the intercept
-                % do the plot for hrv
-                figure; plot(sub_df.hrv_b(:, ireg), '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b',...
+            for ireg = 2:17 % the first one is the intercept                
+                for physParam = 1:2 % there are two physio param for which I'm doing the linear reg model
+                    var = sub_df.(sprintf('%s_b', params{physParam}))(:, ireg);
+                    figure; plot(var, '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b',...
+                        'MarkerEdgeColor', 'b');
+                    xlabel('run')
+                    ylabel('Beta coefficient');
+                    hold on
+                    % plot a horizental line showing the y = 0
+                    y = zeros(1, 16); %% there are 16 runs
+                    plot(y, 'r', 'LineWidth', 1.5);
+                    
+                    %%% find significant betas
+                    a = sub_df.(sprintf('%s_p', params{physParam}))(:, ireg) < 0.05;
+                    x = sub_df.(sprintf('%s_b', params{physParam}))(:, ireg);
+                    x(~a) = NaN;
+                    
+                    hold on
+                    plot(x, 'ro', 'MarkerSize', 10);
+                    
+                    hold on
+                    y = y + max(var) + 0.05;
+                    y(~a) = NaN;
+                    
+                    hold on
+                    plot(y, 'k*', 'MarkerSize', 10);
+                    
+                    title(sprintf('Beta %d vs run for %s', ireg, subj_name{s}));
+                    
+                    h = gcf;
+                    
+                    savefig(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_%s_Beta%d_vs_run.fig', subj_name{s}, params{physParam}, ireg)));
+                    saveas(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_%s_Beta%d_vs_run.png', subj_name{s}, params{physParam}, ireg)));
+                    close all;
+                end % physParam
+            end % ireg (regressors)
+        end % s (sn) 
+        
+        % plot type 2: each beta averaged across runs vs subjects
+        for ireg = 2:17
+            for physParam = 1:2
+                var_name = sprintf('%s_b', params{physParam});
+                b_table  = tapply(b_reg, {'sn'}, {var_name});
+                
+                var = b_table.(var_name)(:, ireg);
+                figure; plot(var, '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b', ...
                     'MarkerEdgeColor', 'b');
-                xlabel('run')
+                xlabel('subject');
                 ylabel('Beta coefficient');
                 
-                % put a star on top of betas that are significant
-                hold on
-                % plot a horizental line showing the y = 0
-                y = zeros(1, 16);
-                plot(y, 'g', 'LineWidth', 1.5);
+                hold on;
+                y = zeros(1, nSub_phys); %% I only have data for 5 subjects
+                plot(y, 'r', 'LineWidth', 1.5);
                 
-                %%% find significant betas 
-                a = sub_df.hrv_p(:, ireg) < 0.05;
-%                 y(a) = 0.02;
-%                 y(~a) = NaN;
-%                 
-                x = sub_df.hrv_b(:, ireg);
-                x(~a) = NaN;
-
-                hold on
-                plot(x, 'r*', 'MarkerSize', 10);
-
-                title(sprintf('Beta %d vs run for %s', ireg, subj_name{s}));
+                title(sprintf('averaged Beta %d vs subject', ireg));
                 
                 h = gcf;
-                
-                savefig(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_Beta%d_vs_run.fig', subj_name{s}, ireg)));
-                saveas(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_Beta%d_vs_run.png', subj_name{s}, ireg)));
-                close all;
-            end % ireg (regressors)
-            
-        end % s (sn)
-        
-        
-        
+                    
+                savefig(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.fig', params{physParam}, ireg)));
+                saveas(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.png', params{physParam}, ireg)));
+            end % physParams
+        end % ireg (regressors)
+
     case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regressor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
@@ -783,8 +811,8 @@ switch what
         % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
         sn             = returnSubjs;        %% list of subjects
-        glm            = 7;              %% The glm number :)
-        experiment_num = 1;
+        glm            = 8;              %% The glm number :)
+        experiment_num = 2;
         con_vs         = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
         which          = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
@@ -843,7 +871,7 @@ switch what
             save(fullfile(glmDir, subj_name{s}, 'SPM_light.mat'), 'SPM');
 
             % rename contrast images and spmT images
-             conName = {'con','spmT'};
+            conName = {'con','spmT'};
             for i = 1:length(SPM.xCon)
                 for n = 1:numel(conName)
                     oldName{i} = fullfile(glmDir, subj_name{s}, sprintf('%s_%2.4d.nii',conName{n},i));
