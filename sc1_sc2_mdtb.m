@@ -250,11 +250,11 @@ switch what
             Xuse       = X_run1;
             
             % load in SPM_info file
-            T     = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
-            ind   = ((T.sess == 1) & (T.run == 1) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
-            X_ind = Xuse(:, ind);
+            T      = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            ind    = ((T.sess == 1) & (T.run == 1) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
+            X_ind  = Xuse(:, ind);
             X_reg = [zeros(3, 16); X_ind];
-            
+
             phys_cell = cell(length(sess), length(scan)); % preallocating the cell mat that will have all the linear reg results for a subject
             for ss = sess
                 for sca = scan
@@ -271,40 +271,18 @@ switch what
                     RVT = physio.model.R(:, 2);
                     
                     % Do OLS regression for HRV
-                    [b_hrv,bint_hrv,r_hrv,rint_hrv,stats_hrv] = regress(HRV,X_reg);
+                    physio_lm.HRV = fitlm(X_reg, HRV);
                     % Do OLS regression for RVT
-                    [b_rvt,bint_rvt,r_rvt,rint_rvt,stats_rvt] = regress(RVT,X_reg);
-                    
-                    physio_reg.b_hrv     = b_hrv;
-                    physio_reg.b_rvt     = b_rvt;
-                    physio_reg.bint_hrv  = bint_hrv;
-                    physio_reg.bint_rvt  = bint_rvt;
-                    physio_reg.r_hrv     = r_hrv;
-                    physio_reg.r_rvt     = r_rvt;
-                    physio_reg.rint_hrv  = rint_hrv;
-                    physio_reg.rint_rvt  = rint_rvt;
-                    physio_reg.stats_hrv = stats_hrv;
-                    physio_reg.stats_rvt = stats_rvt;
+                    physio_lm.RVT = fitlm(X_reg, RVT);
                     
                     % represent instructions with a single regressor:
                     Xreg_uni = sum(X_reg, 2);
-                    [b1_hrv,bint1_hrv,r1_hrv,rint1_hrv,stats1_hrv] = regress(HRV,Xreg_uni);
-                    [b1_rvt,bint1_rvt,r1_rvt,rint1_rvt,stats1_rvt] = regress(RVT,Xreg_uni);
+                    physio_lm.HRV_uni = fitlm(Xreg_uni, HRV);
+                    physio_lm.RVT_uni = fitlm(Xreg_uni, RVT);
                     
-                    physio_reg.b1_hrv     = b1_hrv;
-                    physio_reg.bint1_hrv  = bint1_hrv;
-                    physio_reg.r1_hrv     = r1_hrv;
-                    physio_reg.rint1_hrv  = rint1_hrv;
-                    physio_reg.stats1_hrv = stats1_hrv;
-                    physio_reg.b1_rvt     = b1_rvt;
-                    physio_reg.bint1_rvt  = bint1_rvt;
-                    physio_reg.r1_rvt     = r1_rvt;
-                    physio_reg.rint1_rvt  = rint1_rvt;
-                    physio_reg.stats1_rvt = stats1_rvt;
+                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca_ind)), 'physio_lm', '-v7.3');
                     
-                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca_ind)), 'physio_reg', '-v7.3');
-                    
-                    phys_cell{ss, sca_ind} = physio_reg;
+                    phys_cell{sca_ind} = physio_lm;
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
@@ -322,19 +300,37 @@ switch what
         S = [];
         for s = sn
             S.sn = s;
-            b_hrv = zeros(16, 16); 
-            b_rvt = zeros(16, 16);
             for sca = scan
+                S.run = sca;
                 % load in the .mat file for the subject
                 a = dir(fullfile(PhysDir, subj_name{s}, sprintf('*scan%d_lin_reg.mat', sca)));
                 load(fullfile(PhysDir, subj_name{s}, a.name));
-                b_hrv(sca, :) = physio_reg.b_hrv;
-                b_rvt(sca, :) = physio_reg.b_rvt;
+                % for HRV
+                hrv_model    = physio_lm.HRV;
+                hrvCoefTable = hrv_model.Coefficients;
+                S.hrv_b      = hrvCoefTable.Estimate';
+                S.hrv_p      = hrvCoefTable.pValue';
+                
+                % for RVT
+                rvt_model    = physio_lm.RVT;
+                rvtCoefTable = rvt_model.Coefficients;
+                S.rvt_b      = rvtCoefTable.Estimate';
+                S.rvt_p      = rvtCoefTable.pValue';
+                
+                % for HRV using a single regressor for all the instructions
+                hrv_uni_model   = physio_lm.HRV_uni;
+                hrvUniCoefTable = hrv_uni_model.Coefficients;
+                S.hrvUni_b      = hrvUniCoefTable.Estimate';
+                S.hrvUni_p      = hrvUniCoefTable.pValue';
+                
+                % for RVT using a single regressor for all the instructions
+                rvt_uni_model   = physio_lm.RVT_uni;
+                rvtUniCoefTable = rvt_uni_model.Coefficients;
+                S.rvtUni_b      = rvtUniCoefTable.Estimate';
+                S.rvtUni_p      = rvtUniCoefTable.pValue';
+                
+                b_reg = addstruct(b_reg, S);
             end % sca (scan)
-            S.b_hrv{1} = b_hrv;
-            S.b_rvt{1} = b_rvt;
-                   
-            b_reg = addstruct(b_reg, S);
         end % s (sn)
         save(fullfile(PhysDir, 'linReg_model.mat'), 'b_reg', '-v7.3')
         varargout{1} = b_reg;
@@ -726,7 +722,7 @@ switch what
         % regressor and a regressor for each of the instructions. GLM 8 was
         % written with each task modeled as a 30 sec block and instructions
         % modeled as a separate regressor.
-        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [12, 14, 15], 'glm', 8, 'which', 'task')
+        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [17, 18], 'glm', 8, 'which', 'task')
         % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
         sn             = returnSubjs;        %% list of subjects
@@ -879,7 +875,7 @@ switch what
     case 'SURF:mdtb:map_con'
         % projects individual contrast map volume files for the conditions
         % to the workbench surface.
-        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [3])
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [19, 20, 21, 22], 'glm', 8)
     
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
@@ -1261,12 +1257,12 @@ switch what
         % creates group average for the condition contrast maps.
         % you need to reslice all the images to suit space before running
         % this case
-        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con', 'sn', [3]);
+        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15]);
         
         sn             = returnSubjs;        %% list of subjects
         experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
         type           = 'con';              %% enter the image you want to reslice to suit space
-        glm            = 7;                  %% glm number
+        glm            = 8;                  %% glm number
         con_vs         = 'average_1';        %% is the contrast calculated vs 'rest' or 'average'
         which          = 'task';             %% you may choose 'cond' or 'task'
         
