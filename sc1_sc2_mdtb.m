@@ -18,8 +18,8 @@ numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
 % baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
-% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
-baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
+baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+% baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -357,7 +357,7 @@ switch what
             sub_df = getrow(b_reg, b_reg.sn == s);
             dircheck(fullfile(PhysFigDir, subj_name{s}));
             
-            for ireg = 2:17 % the first one is the intercept
+            for ireg = 2:17 % the first one is the intercept                
                 for physParam = 1:2 % there are two physio param for which I'm doing the linear reg model
                     var = sub_df.(sprintf('%s_b', params{physParam}))(:, ireg);
                     figure; plot(var, '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b',...
@@ -417,8 +417,6 @@ switch what
                     
                 savefig(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.fig', params{physParam}, ireg)));
                 saveas(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.png', params{physParam}, ireg)));
-                
-                close all
             end % physParams
         end % ireg (regressors)
 
@@ -814,7 +812,7 @@ switch what
         
         sn             = returnSubjs;        %% list of subjects
         glm            = 8;              %% The glm number :)
-        experiment_num = 2;
+        experiment_num = 1;
         con_vs         = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
         which          = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
@@ -962,7 +960,7 @@ switch what
     case 'SURF:mdtb:map_con'
         % projects individual contrast map volume files for the conditions
         % to the workbench surface.
-        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [19, 20, 21, 22], 'glm', 8)
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', 2, 'glm', 8, 'experiment_num', 1)
     
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
@@ -1063,7 +1061,7 @@ switch what
             end % hemi
         end % sn
     case 'SURF:mdtb:groupmap_con'
-        % creates group average contrast maps for task contrasts
+        % creates group average contrast maps for task contrasts (from Eva)
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con', 'sn', [3])
     
         sn             = returnSubjs; %% list of subjects
@@ -1545,6 +1543,34 @@ switch what
         title(sprintf('cerebellar regions with high corr with cortex parcel %0.2d for %s', ip, subj_name{subj}));
         
         keyboard;
+        
+    case 'HOUSEKEEPING_renameSPM'     % rename SPM directories
+        % Example: sc1_sc2_mdtb('HOUSEKEEPING_renameSPM', 'experiment_num', 2, 'glm', 8)
+        
+        sn             = returnSubjs;
+        experiment_num = 1;
+        glm            = 8;
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        glmDir     = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        imagingDir = fullfile(baseDir, 'sc1/imaging_data'); %% all the imaging files are in sc1
+        
+        for s = sn
+            fprintf('******************** changing directories for %s ********************\n', subj_name{s});
+            newGLMDir   = fullfile(glmDir,subj_name{s});
+            newRawDir   = fullfile(imagingDir,subj_name{s});
+            
+            % load SPM file
+            load(fullfile(newGLMDir, 'SPM.mat'));
+            
+            SPM         = spmj_move_rawdata(SPM,newRawDir);
+            SPM.swd     = fullfile(newGLMDir);
+            save(fullfile(newGLMDir,'SPM.mat'),'SPM','-v7.3');
+            varargout{1} = SPM;
+        end % s (sn)
 end
 end
 
