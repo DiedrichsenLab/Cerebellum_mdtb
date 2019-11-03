@@ -61,7 +61,7 @@ hemName = {'CortexLeft', 'CortexRight'};
 
 warning('off')
 switch what
-    case 'PHYS:mdtb:get_log' % creates log files for RESP and PULS
+    case 'PHYS:mdtb:get_log'    % creates log files for RESP and PULS
         % use the function extractCMRRPhysio.m to get the log files from
         % the dcm file.
         % Example: sc1_sc2_mdtb('PHYS:mdtb:get_log', 'sn', 26, 'sess', 1, 'scan', 3)
@@ -90,7 +90,7 @@ switch what
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
-    case 'PHYS:mdtb:get_reg' % creates a text file for PULS and RESP regressors
+    case 'PHYS:mdtb:get_reg'    % creates a text file for PULS and RESP regressors
         % using tapas latest version to get the regressors for
         % physiological signals using the example code that Suzanne
         % provided. Have to run 'PHYS:mdtb:get_log' if you don't already
@@ -219,7 +219,7 @@ switch what
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
-    case 'PHYS:mdtb:lin_reg' % regresses HRV and RVT on the regressor(s) for instructions
+    case 'PHYS:mdtb:lin_reg'    % regresses HRV and RVT on the regressor(s) for instructions
         %%% uses one subject
         % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
         sn             = [24, 25, 26, 27, 28];
@@ -238,29 +238,32 @@ switch what
         
         for s = sn
             
+            % construct the design matrix with each instructions modeled as
+            % a separate regressor
+            % all the design matrix are the same so crating it using one
+            % session and run would be enough
             % load in the SPM file (This could take a while)
 %             load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
             load(fullfile(PhysioDir, 'X.mat'));
             
+            X_run1     = X(1:598, 1:end - 16);                                        % discarding the intercepts
+            Xuse       = X_run1;
+            
             % load in SPM_info file
             T      = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
-            
+            ind    = ((T.sess == 1) & (T.run == 1) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
+            X_ind  = Xuse(:, ind);
+            X_reg = [zeros(3, 16); X_ind];
+
             phys_cell = cell(length(sess), length(scan)); % preallocating the cell mat that will have all the linear reg results for a subject
             for ss = sess
                 for sca = scan
-                    
-                    X_run1     = X(1:598, 1:end - 16);                                        % discarding the intercepts
-                    Xuse       = X_run1;
-                    
                     if ss == 2
                         sca_ind = sca + 8;
                     elseif ss == 1
                         sca_ind = sca;
                     end
                     
-                    ind   = ((T.sess == ss) & (T.run == sca_ind) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
-                    X_ind = Xuse(:, ind);                                                          
-                    X_reg = [zeros(3, 16); X_ind];                                              % My design matrix, adding zeros for dummies!
                     % load in HRV and RVT regressors
                     load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca_ind)));
                     
@@ -268,45 +271,155 @@ switch what
                     RVT = physio.model.R(:, 2);
                     
                     % Do OLS regression for HRV
-                    [b_hrv,bint_hrv,r_hrv,rint_hrv,stats_hrv] = regress(HRV,X_reg);
+                    physio_lm.HRV = fitlm(X_reg, HRV);
                     % Do OLS regression for RVT
-                    [b_rvt,bint_rvt,r_rvt,rint_rvt,stats_rvt] = regress(RVT,X_reg);
-                    
-                    physio_reg.b_hrv     = b_hrv;
-                    physio_reg.b_rvt     = b_rvt;
-                    physio_reg.bint_hrv  = bint_hrv;
-                    physio_reg.bint_rvt  = bint_rvt;
-                    physio_reg.r_hrv     = r_hrv;
-                    physio_reg.r_rvt     = r_rvt;
-                    physio_reg.rint_hrv  = rint_hrv;
-                    physio_reg.rint_rvt  = rint_rvt;
-                    physio_reg.stats_hrv = stats_hrv;
-                    physio_reg.stats_rvt = stats_rvt;
+                    physio_lm.RVT = fitlm(X_reg, RVT);
                     
                     % represent instructions with a single regressor:
                     Xreg_uni = sum(X_reg, 2);
-                    [b1_hrv,bint1_hrv,r1_hrv,rint1_hrv,stats1_hrv] = regress(HRV,Xreg_uni);
-                    [b1_rvt,bint1_rvt,r1_rvt,rint1_rvt,stats1_rvt] = regress(RVT,Xreg_uni);
+                    physio_lm.HRV_uni = fitlm(Xreg_uni, HRV);
+                    physio_lm.RVT_uni = fitlm(Xreg_uni, RVT);
                     
-                    physio_reg.b1_hrv     = b1_hrv;
-                    physio_reg.bint1_hrv  = bint1_hrv;
-                    physio_reg.r1_hrv     = r1_hrv;
-                    physio_reg.rint1_hrv  = rint1_hrv;
-                    physio_reg.stats1_hrv = stats1_hrv;
-                    physio_reg.b1_rvt     = b1_rvt;
-                    physio_reg.bint1_rvt  = bint1_rvt;
-                    physio_reg.r1_rvt     = r1_rvt;
-                    physio_reg.rint1_rvt  = rint1_rvt;
-                    physio_reg.stats1_rvt = stats1_rvt;
+                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca_ind)), 'physio_lm', '-v7.3');
                     
-                    save(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, ss, sca)), 'physio_reg', '-v7.3');
-                    
-                    phys_cell{ss, sca} = physio_reg;
+                    phys_cell{sca_ind} = physio_lm;
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
         varargout{1} = phys_cell;
-    
+    case 'PHYS:mdtb:linReg_df'  % creates a dataframe which can be used for visualizations later
+        % Example: sc1_sc2_mdtb('PHYS:mdtb:linReg_df')
+        
+        sn   = [24, 25, 26, 27, 28];
+        scan = 1:16;
+        
+        vararginoptions(varargin, {'sn', 'scan'});
+        
+        PhysDir = fullfile(baseDir, 'Physio');
+        b_reg = [];
+        S = [];
+        for s = sn
+            S.sn = s;
+            for sca = scan
+                S.run = sca;
+                % load in the .mat file for the subject
+                a = dir(fullfile(PhysDir, subj_name{s}, sprintf('*scan%d_lin_reg.mat', sca)));
+                load(fullfile(PhysDir, subj_name{s}, a.name));
+                % for HRV
+                hrv_model    = physio_lm.HRV;
+                hrvCoefTable = hrv_model.Coefficients;
+                S.hrv_b      = hrvCoefTable.Estimate';
+                S.hrv_p      = hrvCoefTable.pValue';
+                
+                % for RVT
+                rvt_model    = physio_lm.RVT;
+                rvtCoefTable = rvt_model.Coefficients;
+                S.rvt_b      = rvtCoefTable.Estimate';
+                S.rvt_p      = rvtCoefTable.pValue';
+                
+                % for HRV using a single regressor for all the instructions
+                hrv_uni_model   = physio_lm.HRV_uni;
+                hrvUniCoefTable = hrv_uni_model.Coefficients;
+                S.hrvUni_b      = hrvUniCoefTable.Estimate';
+                S.hrvUni_p      = hrvUniCoefTable.pValue';
+                
+                % for RVT using a single regressor for all the instructions
+                rvt_uni_model   = physio_lm.RVT_uni;
+                rvtUniCoefTable = rvt_uni_model.Coefficients;
+                S.rvtUni_b      = rvtUniCoefTable.Estimate';
+                S.rvtUni_p      = rvtUniCoefTable.pValue';
+                
+                b_reg = addstruct(b_reg, S);
+            end % sca (scan)
+        end % s (sn)
+        save(fullfile(PhysDir, 'linReg_model.mat'), 'b_reg', '-v7.3')
+        varargout{1} = b_reg;
+    case 'PHYS:mdtb:linReg_viz' % visualizing the results of linear regression
+        % two different types of plots are created.
+        % Example: sc1_sc2_mdtb('PHYS:mdtb:linReg_viz')
+        
+        sn   = [24, 25, 26, 27, 28];
+        
+        vararginoptions(varargin, {'sn'})
+        
+        PhysDir    = fullfile(baseDir, 'Physio');
+        PhysFigDir = fullfile(PhysDir, 'figure');
+        dircheck(PhysFigDir);
+        % load in the dataframe
+        load(fullfile(PhysDir, 'linReg_model.mat'));
+        
+        params = {'hrv', 'rvt'};
+        
+        nSub_phys = 5; %% I only have data for 5 subjects
+
+        % plot type 1: beta vs run for each subject
+        for s = sn 
+            sub_df = getrow(b_reg, b_reg.sn == s);
+            dircheck(fullfile(PhysFigDir, subj_name{s}));
+            
+            for ireg = 2:17 % the first one is the intercept                
+                for physParam = 1:2 % there are two physio param for which I'm doing the linear reg model
+                    var = sub_df.(sprintf('%s_b', params{physParam}))(:, ireg);
+                    figure; plot(var, '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b',...
+                        'MarkerEdgeColor', 'b');
+                    xlabel('run')
+                    ylabel('Beta coefficient');
+                    hold on
+                    % plot a horizental line showing the y = 0
+                    y = zeros(1, 16); %% there are 16 runs
+                    plot(y, 'r', 'LineWidth', 1.5);
+                    
+                    %%% find significant betas
+                    a = sub_df.(sprintf('%s_p', params{physParam}))(:, ireg) < 0.05;
+                    x = sub_df.(sprintf('%s_b', params{physParam}))(:, ireg);
+                    x(~a) = NaN;
+                    
+                    hold on
+                    plot(x, 'ro', 'MarkerSize', 10);
+                    
+                    hold on
+                    y = y + max(var) + 0.05;
+                    y(~a) = NaN;
+                    
+                    hold on
+                    plot(y, 'k*', 'MarkerSize', 10);
+                    
+                    title(sprintf('Beta %d vs run for %s', ireg, subj_name{s}));
+                    
+                    h = gcf;
+                    
+                    savefig(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_%s_Beta%d_vs_run.fig', subj_name{s}, params{physParam}, ireg)));
+                    saveas(h, fullfile(PhysFigDir, subj_name{s}, sprintf('%s_%s_Beta%d_vs_run.png', subj_name{s}, params{physParam}, ireg)));
+                    close all;
+                end % physParam
+            end % ireg (regressors)
+        end % s (sn) 
+        
+        % plot type 2: each beta averaged across runs vs subjects
+        for ireg = 2:17
+            for physParam = 1:2
+                var_name = sprintf('%s_b', params{physParam});
+                b_table  = tapply(b_reg, {'sn'}, {var_name});
+                
+                var = b_table.(var_name)(:, ireg);
+                figure; plot(var, '-o', 'LineWidth', 2, 'MarkerSize', 4, 'MarkerFaceColor', 'b', ...
+                    'MarkerEdgeColor', 'b');
+                xlabel('subject');
+                ylabel('Beta coefficient');
+                
+                hold on;
+                y = zeros(1, nSub_phys); %% I only have data for 5 subjects
+                plot(y, 'r', 'LineWidth', 1.5);
+                
+                title(sprintf('averaged Beta %d vs subject', ireg));
+                
+                h = gcf;
+                    
+                savefig(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.fig', params{physParam}, ireg)));
+                saveas(h, fullfile(PhysFigDir, sprintf('%s_averaged_Beta%d_vs_run.png', params{physParam}, ireg)));
+            end % physParams
+        end % ireg (regressors)
+
     case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regressor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
@@ -321,7 +434,7 @@ switch what
         announceTime = 5;
                 
         % load in task information
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc = getrow(C, C.StudyNum == experiment_num);
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
@@ -391,9 +504,9 @@ switch what
                     ST  = find(strcmp(P.taskName,Cc.taskNames{ic0}));
                     instruct_onset = P.realStartTime(ST)-J.timing.RT*numDummys; %% get the instruction start time for the first task                   
 %                     instruct_onset = P.realStartTime(it)-J.timing.RT*numDummys; %% get the instruction start time for the first task
-                    J.sess(r).cond(ic).name     = Cc.condNames{1};
+                    J.sess(r).cond(ic).name     = 'Instruct';
                     J.sess(r).cond(ic).onset    = instruct_onset(1); % correct start time for numDummys and announcetime included (not for instruct)
-                    J.sess(r).cond(ic).duration = Cc.duration(1);  % duration of trials (+ fixation cross) we are modeling
+                    J.sess(r).cond(ic).duration = 5;  % duration of trials (+ fixation cross) we are modeling
                     J.sess(r).cond(ic).tmod     = 0;
                     J.sess(r).cond(ic).orth     = 0;
                     J.sess(r).cond(ic).pmod     = struct('name', {}, 'param', {}, 'poly', {});
@@ -490,7 +603,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-            spm_rwls_run_fmri_spec(J);
+%             spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -694,11 +807,11 @@ switch what
         % regressor and a regressor for each of the instructions. GLM 8 was
         % written with each task modeled as a 30 sec block and instructions
         % modeled as a separate regressor.
-        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [2], 'glm', 9, 'which', 'task')
+        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [17, 18], 'glm', 8, 'which', 'task')
         % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
         sn             = returnSubjs;        %% list of subjects
-        glm            = 7;              %% The glm number :)
+        glm            = 8;              %% The glm number :)
         experiment_num = 1;
         con_vs         = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
         which          = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
@@ -758,7 +871,7 @@ switch what
             save(fullfile(glmDir, subj_name{s}, 'SPM_light.mat'), 'SPM');
 
             % rename contrast images and spmT images
-             conName = {'con','spmT'};
+            conName = {'con','spmT'};
             for i = 1:length(SPM.xCon)
                 for n = 1:numel(conName)
                     oldName{i} = fullfile(glmDir, subj_name{s}, sprintf('%s_%2.4d.nii',conName{n},i));
@@ -847,7 +960,7 @@ switch what
     case 'SURF:mdtb:map_con'
         % projects individual contrast map volume files for the conditions
         % to the workbench surface.
-        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', [3])
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con', 'sn', 2, 'glm', 8, 'experiment_num', 1)
     
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
@@ -948,7 +1061,7 @@ switch what
             end % hemi
         end % sn
     case 'SURF:mdtb:groupmap_con'
-        % creates group average contrast maps for task contrasts
+        % creates group average contrast maps for task contrasts (from Eva)
         % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con', 'sn', [3])
     
         sn             = returnSubjs; %% list of subjects
@@ -973,43 +1086,41 @@ switch what
                 conNames = unique(Cc.condNames);
         end %% do you want the group maps for tasks or conditions
         
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
+        
         experiment = sprintf('sc%d', experiment_num);
         
         % setting directoriese
         wbDir  = 'surfaceWB';
         
         % go to the directory where fs_LR atlas is.
-        groupSurfDir     = fullfile(baseDir, experiment, wbDir, 'data', sprintf('group%dk', atlas_res));
+        atlasDir         = fullfile(baseDir, sprintf('fs_LR_%d', atlas_res));
         groupSurfDir_glm = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), sprintf('group%dk', atlas_res));
         dircheck(groupSurfDir_glm);
-        cd(groupSurfDir);
+        cd(atlasDir);
         
         for h = 1:2 % two hemispheres
             for cc = 1:length(conNames)
                 for s = 1:length(sn)
                     %%% make the group metric file for each contrasts
-%                     infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
                     infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
                     
                     if smooth
-                        surfFile    = fullfile(groupSurfDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
+                        surfFile    = fullfile(atlasDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
                         surf_smooth(infilenames{s},'surf',surfFile,'kernel',kernel); % smooth outfilenames - it will prefix an 's'
                     end
-%                     s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
                     s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
                 
                 end % sn
-%                 outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
-%                 summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
-                
                 outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s.func.gii',hemI{h},conNames{cc}, con_vs));
                 summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s.func.gii',hemI{h},conNames{cc}, con_vs));
                 
                 surf_groupGiftis(infilenames, 'outfilenames', {outfilenames}, 'groupsummary', summaryname, 'replaceNaNs', replaceNaN);
                 if smooth % also save the smoothed versions
-%                     s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
                     s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
-%                     s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
                     s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
                     surf_groupGiftis(s_infilenames, 'outfilenames', {s_outfilenames}, 'groupsummary', s_summaryname, 'replaceNaNs', replaceNaN);
                 end
@@ -1127,7 +1238,7 @@ switch what
         sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
         type           = 'con';                  %% enter the image you want to reslice to suit space
-        glm            = 7;                      %% glm number
+        glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
@@ -1227,24 +1338,35 @@ switch what
 %         suit_plotflatmap(D, 'cmap', colormap(jet(256)), 'cscale', [-3, 3]);
 %         caxis([-3, 3]);
 %         colorbar;
-    case 'SUIT:mdtb:groupmap_con_cond'
+    case 'SUIT:mdtb:groupmap_con'
         % creates group average for the condition contrast maps.
         % you need to reslice all the images to suit space before running
         % this case
-        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_cond', 'sn', [3]);
+        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15]);
         
-        sn         = returnSubjs;                   %% list of subjects
-        experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type       = 'con';                  %% enter the image you want to reslice to suit space
-        glm        = 7;                      %% glm number
-        con_vs     = 'rest';                 %% is the contrast calculated vs 'rest' or 'average'
+        sn             = returnSubjs;        %% list of subjects
+        experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
+        type           = 'con';              %% enter the image you want to reslice to suit space
+        glm            = 8;                  %% glm number
+        con_vs         = 'average_1';        %% is the contrast calculated vs 'rest' or 'average'
+        which          = 'task';             %% you may choose 'cond' or 'task'
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
         Cc       = getrow(C, C.StudyNum == experiment_num);
-        conNames = unique(Cc.condNames);
+        switch which
+            case 'task' % task for glm8
+                conNames = unique(Cc.taskNames);
+            case 'cond' % condition for glm7
+                conNames = unique(Cc.condNames);
+        end %% do you want the group maps for tasks or conditions
+        
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
         
         experiment = sprintf('sc%d', experiment_num);
         
@@ -1421,6 +1543,34 @@ switch what
         title(sprintf('cerebellar regions with high corr with cortex parcel %0.2d for %s', ip, subj_name{subj}));
         
         keyboard;
+        
+    case 'Houskeeping:renameSPM'     % rename SPM directories
+        % Example: sc1_sc2_mdtb('HOUSEKEEPING_renameSPM', 'experiment_num', 2, 'glm', 8)
+        
+        sn             = returnSubjs;
+        experiment_num = 1;
+        glm            = 8;
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        glmDir     = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        imagingDir = fullfile(baseDir, 'sc1/imaging_data'); %% all the imaging files are in sc1
+        
+        for s = sn
+            fprintf('******************** changing directories for %s ********************\n', subj_name{s});
+            newGLMDir   = fullfile(glmDir,subj_name{s});
+            newRawDir   = fullfile(imagingDir,subj_name{s});
+            
+            % load SPM file
+            load(fullfile(newGLMDir, 'SPM.mat'));
+            
+            SPM         = spmj_move_rawdata(SPM,newRawDir);
+            SPM.swd     = fullfile(newGLMDir);
+            save(fullfile(newGLMDir,'SPM.mat'),'SPM','-v7.3');
+            varargout{1} = SPM;
+        end % s (sn)
 end
 end
 

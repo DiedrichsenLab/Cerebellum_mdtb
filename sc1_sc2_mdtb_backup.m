@@ -99,7 +99,7 @@ switch what
         % have the log files!
         % Example: sc1_sc2_mdtb('PHYS:mdtb:get_reg', 'sn', 26)
         
-        sn   = [24, 25, 26, 27, 28, 30, 31];
+        sn   = [24, 25, 26, 27, 28];
         sess = 1:2;
         scan = 1:8;
         
@@ -208,39 +208,41 @@ switch what
                     
                     % Run physiological recording preprocessing and noise modeling
                     [~, R, ~] = tapas_physio_main_create_regressors(physio);
-                    save(fullfile(outDir, sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, ss, sca)), 'R', '-v7.3')
+                    
+                    if ss == 2
+                        sca_ind = sca + 8;
+                    elseif ss == 1
+                        sca_ind = sca;
+                    end
+                    save(fullfile(outDir, sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, ss, sca_ind)), 'R', '-v7.3')
                     close all
-                    keyboard;
-                    fprintf('\n********** Physio regressors extracted for %s sess %d scan %d **********\n', subj_name{s}, ss, sca);
+%                     keyboard;
+                    fprintf('\n********** Physio regressors extracted for %s sess %d scan %d **********\n', subj_name{s}, ss, sca_ind);
                 end % sca (scan)
             end % ss (sess)
         end % s (sn)
     case 'PHYS:mdtb:lin_reg' % regresses HRV and RVT on the regressor(s) for instructions
         %%% uses one subject
         % Example: sc1_sc2_mdtb('PHYS:mdtb:lin_reg')
-        sn         = 24;
-        experiment = 1; 
-        ppmethod   = '';
-        glm        = 7;
-        sess       = 1:2;
-        scan       = 1:8;
+        sn             = [24, 25, 26, 27, 28];
+        experiment_num = 1; 
+        glm            = 7;
+        sess           = 1:2;
+        scan           = 1:8;
         
-        vararginoptions(varargin, {'sn', 'experiment', 'ppmethod', 'glm', 'sess', 'scan'});
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'sess', 'scan'});
         
-        experiment = sprintf('sc%d', experiment);
+        experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        % GLM directory
+        glmDir    = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         PhysioDir = fullfile(baseDir, 'Physio');
         
         for s = sn
             
             % load in the SPM file (This could take a while)
-            load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
+%             load(fullfile(glmDir, subj_name{s}, 'SPM.mat'));
+            load(fullfile(PhysioDir, 'X.mat'));
             
             % load in SPM_info file
             T      = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
@@ -249,12 +251,20 @@ switch what
             for ss = sess
                 for sca = scan
                     
-                    X     = SPM.xX.X(1:598, 1:end - 16);                                        % discarding the intercepts
-                    ind   = ((T.sess == ss) & (T.run == sca) & (T.inst == 1) & (T.deriv == 0)); % get the indices for run1, instructions, non-derivatives
-                    X_ind = X(:, ind);                                                          
+                    X_run1     = X(1:598, 1:end - 16);                                        % discarding the intercepts
+                    Xuse       = X_run1;
+                    
+                    if ss == 2
+                        sca_ind = sca + 8;
+                    elseif ss == 1
+                        sca_ind = sca;
+                    end
+                    
+                    ind   = ((T.sess == ss) & (T.run == sca_ind) & (T.inst == 1) & (T.deriv == 0) ); % get the indices for run1, instructions, non-derivatives
+                    X_ind = Xuse(:, ind);                                                          
                     X_reg = [zeros(3, 16); X_ind];                                              % My design matrix, adding zeros for dummies!
                     % load in HRV and RVT regressors
-                    load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca)));
+                    load(fullfile(PhysioDir, subj_name{s}, sprintf('%s_sess%d_scan%d_physio.mat', subj_name{s}, ss, sca_ind)));
                     
                     HRV = physio.model.R(:, 1);
                     RVT = physio.model.R(:, 2);
@@ -304,21 +314,21 @@ switch what
         %%% period for each task separated and coming before the task.
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
         sn            = returnSubjs; %% list of subjects
-        experiment    = 1;           %% sc1 or sc2?
+        experiment_num    = 1;           %% sc1 or sc2?
         ppmethod      = '';          %% 'stc' or ''? The default is set to ''
         deriv         = 1;           %% 'temp', 'temp_disp', or 'none'?
         glm           = 72;           %% the glm number      
         
-        vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'ppmethod', 'deriv', 'glm'});
         
         announceTime = 5;
                 
         % load in task information
 %         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
-        Cc = getrow(C, C.StudyNum == experiment);
+        Cc = getrow(C, C.StudyNum == experiment_num);
         
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% SPM and SPM_info files will be saved in glmDir
         switch ppmethod
@@ -635,22 +645,22 @@ switch what
     case 'GLM:mdtb:design_glm8' % GLM with each task modeled as a 30 sec block regressor
         % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm8', 'sn', a);
         sn            = returnSubjs; %% list of subjects
-        experiment    = 1;           %% sc1 or sc2?
+        experiment_num    = 1;           %% sc1 or sc2?
         ppmethod      = '';          %% 'stc' or ''? The default is set to ''
         deriv         = 1;           %% 0, 1, or 2 for no derivative, temporal, and temporal + dispersion?
         glm           = 8;           %% the glm number      
         
-        vararginoptions(varargin,{'sn', 'experiment', 'ppmethod', 'deriv', 'glm'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'ppmethod', 'deriv', 'glm'});
                 
         % load in task information
 %         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         C     = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
-        Cc    = getrow(C, C.StudyNum == experiment);
+        Cc    = getrow(C, C.StudyNum == experiment_num);
         Tasks = unique(Cc.taskNames,'rows','stable'); % get the task names
         Tasks(strcmp(Tasks, 'Instruct')) = [];        % .dat file with all the info for the tasks does not have 'Instruct', so I'm eliminating it here!
         nTask = unique(length(Tasks));   % how many tasks there are? for sc1: 18 (including rest) and sc2: 33 (including rest)
 
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         announceTime = 5; % there is a 5 sec interval between instruction onset and task onset.
         
@@ -844,12 +854,12 @@ switch what
         % Example: sc1_sc2_mdtb('GLM:mdtb:run_glm', 'sn', [2])
         sn         = returnSubjs;   %% list of subjects
         glm        = 82;            %% The glm number :)
-        experiment = 1;
+        experiment_num = 1;
         ppmethod   = '';            %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'ppmethod'})
         
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
 
         %%% setting the directory paths I need
         switch ppmethod
@@ -885,22 +895,16 @@ switch what
         
         sn         = returnSubjs;        %% list of subjects
         glm        = 7;           %% The glm number :)
-        experiment = 1;
-        ppmethod   = '';          %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
+        experiment_num = 1;
         con_vs     = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
         which      = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod', 'con_vs', 'which'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'ppmethod', 'con_vs', 'which'})
         
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% setting directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         for s = sn
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
@@ -1018,25 +1022,19 @@ switch what
         
         sn         = returnSubjs;        %% list of subjects
         glm        = 72;           %% The glm number :)
-        experiment = 1;
-        ppmethod   = '';          %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
+        experiment_num = 1;
         con_vs     = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod', 'con_vs'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs'})
         
         % gt the task info
         C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM copy.txt'));
-        Cc  = getrow(C,C.StudyNum == experiment);
+        Cc  = getrow(C,C.StudyNum == experiment_num);
         
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% setting directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         for s = sn
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
@@ -1103,20 +1101,15 @@ switch what
         
         sn         = returnSubjs;   %% list of subjects
         glm        = 7;      %% The glm number :)
-        experiment = 1;
-        ppmethod   = '';  %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
+        experiment_num = 1;
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num'})
         
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% setting directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        
         load(fullfile(glmDir, 'all_trans_task_names.mat'));
         for s = sn
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
@@ -1160,23 +1153,18 @@ switch what
         % down code for FAST GLM)
         % Example: sc1_sc2_mdtb('GLM:mdtb:contrast_transitions_id', 'sn', [3])
         
-        sn         = returnSubjs;   %% list of subjects
-        glm        = 7;      %% The glm number :)
-        experiment = 1;
-        ppmethod   = '';     %% was the preprocessing done with stc included? Input 'stc' for pp with slice timing and 'no_stc' for pp without it
-        con_vs     = 'rest'; %% contrasts were calculated vs 'rest' or 'average'
+        sn             = returnSubjs;   %% list of subjects
+        glm            = 7;      %% The glm number :)
+        experiment_num = 1;
+        con_vs         = 'rest'; %% contrasts were calculated vs 'rest' or 'average'
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num'})
         
-        experiment = sprintf('sc%d', experiment); %% experiment number is converted to 'sc1' or 'sc2'
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
         %%% setting directory paths I need
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        
         load(fullfile(glmDir, 'all_trans_task_names.mat'));
         for s = sn
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
@@ -1225,28 +1213,29 @@ switch what
         % gets the task transition info. Uses one subject to get the
         % transition info for all the subjects, assuming that task
         % transitions are the same across all the subjects.
-        % Example: sc1_sc2_mdtb('GLM:mdtb:transition_info')
+        % Example: sc1_sc2_mdtb_backup('GLM:mdtb:transition_info')
         
         sn         = 3;  %% the subject you want to use to get the transition info
-        ppmethod   = '';
-        experiment = 1;
-        glm        = 7;
+        experiment_num = 1;
+        glm        = 8;
         
-        vararginoptions(varargin, {'experiment', 'ppmethod', 'glm'});
+        vararginoptions(varargin, {'experiment_num', 'glm'});
         
-        experiment = sprintf('sc%d', experiment);
+        experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        % setting directory paths
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         T = load(fullfile(glmDir, subj_name{sn}, 'SPM_info'));
-        t = getrow(T, T.deriv == 0 & T.inst == 1); % getting all the non-derivative regressors and regressors corresponding to instructions
-        t = rmfield(t,{'SN','TN','deriv','task'}); % removing unnecessary fields
         
+        if isfield(T, 'deriv') % derivatives were included in the glm
+            t = getrow(T, T.deriv == 0 & T.inst == 1); % getting all the non-derivative regressors and regressors corresponding to instructions
+            t = rmfield(t,{'SN','TN', 'deriv', 'task'});         % removing unnecessary fields
+        elseif ~isfield(T, 'deriv') % derivatives were not included in the glm
+            t = getrow(T, T.inst == 1);
+            t = rmfield(t,{'SN','TN','task'});         % removing unnecessary fields
+        end % checking if derivatives were included in the glm
+
         t.instOrder_all = (1:length(t.inst))';
         t.instOrder_run = t.instOrder;
         t               = rmfield(t, {'instOrder'});
@@ -1262,21 +1251,16 @@ switch what
         sn         = returnSubjs;
         atlas_res  = 32;        %% atlas resolution set to 32 or 164
         nNodes     = 162;       %% options: 162, 362, 642, 1002, 1442
-        experiment = 1;
+        experiment_num = 1;
         glm        = 7;
-        ppmethod   = '';        %% with or without stc
         parcelType = 'yeo_7WB'; %% set it to 'tesselsWB', 'yeo_7WB', or 'yeo_17WB', 'Buckner_7', 'Buckner_17' (type of the parcels you want to use), 'cortex_cole'
         
-        vararginoptions(varargin, {'sn', 'atlas', 'nNodes', 'experiment', 'glm', 'type'});
+        vararginoptions(varargin, {'sn', 'atlas', 'nNodes', 'experiment_num', 'glm', 'type'});
         
-        experiment = sprintf('sc%d', experiment);
+        experiment = sprintf('sc%d', experiment_num);
         
-        switch ppmethod
-            case ''
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-            case 'stc'
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
-        end
+        % setting directory paths
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
                 
         surfDir = fullfile(baseDir, experiment, sprintf('fs_LR_%d', atlas_res)); %% the directory where the atlas is located
         for s = sn
@@ -1352,11 +1336,11 @@ switch what
         
         sn           = returnSubjs;
         parcellation = 'Buckner_17'; %% the parcellation you want to inspect
-        experiment   = 1;
+        experiment_num   = 1;
         
-        vararginoptions(varargin, {'sn', 'parcellation', 'experiment'})
+        vararginoptions(varargin, {'sn', 'parcellation', 'experiment_num'})
         
-        experiment = sprintf('sc%d', experiment);
+        experiment = sprintf('sc%d', experiment_num);
         
         empty_roi = {};
         for s = sn
@@ -1382,11 +1366,11 @@ switch what
         
         sn         = returnSubjs;      %% subject for whom you want to create the ROI nifti files. (I always use s03 :))         
         parcelType = 'Buckner_7';
-        experiment = 1;
+        experiment_num = 1;
         
-        vararginoptions(varargin,{'sn', 'parcelType', 'experiment'});
+        vararginoptions(varargin,{'sn', 'parcelType', 'experiment_num'});
         
-        experiment = sprintf('sc%d', experiment);
+        experiment = sprintf('sc%d', experiment_num);
            
         for s = sn
             % load ROI definition
@@ -1394,9 +1378,8 @@ switch what
             
             if ismember(parcelType, corticalParcels) % the parcelType entered is from cortex
                 mask = fullfile(baseDir, experiment, regDir, 'data', subj_name{s}, 'cortical_mask_grey.nii');
-            else if ismember(parcelType, cerebellarParcels) % the parcelType entered is from cerebellum
+            elseif ismember(parcelType, cerebellarParcels) % the parcelType entered is from cerebellum
                     mask = fullfile(baseDir, experiment, regDir, 'data', subj_name{s}, 'maskbrainSUITGrey.nii');
-                end
             end % a cortical ROI or a cerebellar ROI?
             
             % loop over rois
@@ -1412,13 +1395,13 @@ switch what
         % time series extraction only saves the non-normalized beta values.
         % for sc1, there are 88 beta values per subject. The normalization
         % method is 'runwise'.
-        % Example: sc1_sc2_mdtb('ROI:mdtb:beta_unn', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 17, 18, 19, 20]);
+        % Example: sc1_sc2_mdtb_backup('ROI:mdtb:beta_unn', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 17, 18, 19, 20]);
         
         sn         = returnSubjs;
         ppmethod   = '';
         experiment = 2;
         roi        = 'yeo_17WB'; %% other options are 'Buckner_17', 'yeo_7WB', and 'yeo_17WB'
-        glm        = 7;
+        glm        = 8;
         oparcel    = 1;           %% the parcel that will be omited due to the fact that it was empty in some of the subjects
         %%% run 'ROI:mdtb:empty_parcel' to get oparcel. 
         discardp   = 1;           %% set this flag to 1 if you want to omit a parcel and 0 otherwise.
@@ -2501,11 +2484,11 @@ switch what
         % takes all the gifti files for the contrasts for each subject and
         % merge them all together in a single file. It can do it both on
         % individual level and group level.
-        % Example: sc1_sc2_mdtb('SURF:contrasts_single_gifti', 'sn', 3)
+        % Example: sc1_sc2_mdtb_backup('SURF:contrasts_single_gifti', 'sn', 3)
         
-        sn          = returnSubjs;           %%
+        sn          = returnSubjs;    %%
         glm         = 8;              %%
-        experiment  = 1;              %%
+        experiment  = 2;              %%
         ppmethod    = '';             %%
         which       = 'task';         %%
         igroup      = 0;              %% do it for the group average files or for the individual subjects?
@@ -2516,7 +2499,7 @@ switch what
         vararginoptions(varargin, {'sn', 'glm', 'experiment', 'ppmethod', 'which', 'con_vs', 'atlas_res', 'replaceNaNs'})
         
         % load in task information
-        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
         Cc       = getrow(C, C.StudyNum == experiment);
         switch which
             case 'task' % task for glm8
@@ -2527,17 +2510,25 @@ switch what
         
         experiment = sprintf('sc%d', experiment);
         
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
+        
         switch ppmethod
             case ''
                 wbDir = fullfile(baseDir, experiment, 'surfaceWB');
             case 'stc'
                 wbDir = fullfile(baseDir, experiment, 'surfaceWB_stc');
         end
+        
+        dircheck(wbDir);
 
         switch igroup % do it for group data or individual data
             case 1 % do it for the group data which is already smoothed?
             case 0 % do it for each subject separately
                 for s = sn
+                    dircheck(fullfile(wbDir, sprintf('glm%d', glm), subj_name{s}))
 %                     subWbDir = fullfile(wbDir, subj_name{s});
                     % group all the contrast surface maps into a single
                     % file
@@ -3899,30 +3890,30 @@ switch what
         end % switch ifig
         
         
-%         % scatter plot for the whole structures
-%         figure;
-%         subplot(121)
-%         %         xyplot(xdf_L_p.(plotvar), ydf_p.(plotvar), [], 'split', df.(category), 'errorbars', 'ellipse');
-%         scatterplot(T_L_s.(plotvar), T_Y_s.(plotvar), 'markertype', 'v',...
-%             'markercolor', [0.6, 0.2 0], 'markerfill', [0.6, 0.2, 0],...
-%             'markersize', 6, 'label', D.taskNames);
-%         h           = lsline;
-%         h.Color     = 'b';
-%         h.LineWidth = 3;
-%         title(sprintf('vs left hemi'))
-%         xlabel(xvar)
-%         ylabel(yvar)
-%         
-%         subplot(122)
-%         scatterplot(T_R_s.(plotvar), T_Y_s.(plotvar), 'markertype', 'v',...
-%             'markercolor', [0.6, 0.2 0], 'markerfill', [0.6, 0.2, 0],...
-%             'markersize', 6, 'label', D.taskNames);
-%         h           = lsline;
-%         h.Color     = 'b';
-%         h.LineWidth = 3;
-%         title(sprintf('vs right hemi'))
-%         xlabel(xvar)
-%         ylabel(yvar)
+        % scatter plot for the whole structures
+        figure;
+        subplot(121)
+        %         xyplot(xdf_L_p.(plotvar), ydf_p.(plotvar), [], 'split', df.(category), 'errorbars', 'ellipse');
+        scatterplot(T_L_s.(plotvar), T_Y_s.(plotvar), 'markertype', 'v',...
+            'markercolor', [0.6, 0.2 0], 'markerfill', [0.6, 0.2, 0],...
+            'markersize', 6, 'label', D.taskNames);
+        h           = lsline;
+        h.Color     = 'b';
+        h.LineWidth = 3;
+        title(sprintf('vs left hemi'))
+        xlabel(xvar)
+        ylabel(yvar)
+        
+        subplot(122)
+        scatterplot(T_R_s.(plotvar), T_Y_s.(plotvar), 'markertype', 'v',...
+            'markercolor', [0.6, 0.2 0], 'markerfill', [0.6, 0.2, 0],...
+            'markersize', 6, 'label', D.taskNames);
+        h           = lsline;
+        h.Color     = 'b';
+        h.LineWidth = 3;
+        title(sprintf('vs right hemi'))
+        xlabel(xvar)
+        ylabel(yvar)
     case 'EA:mdtb:beta_corr_net'
         % This case calculates the correlations between activations in
         % networks across structures (cerebellum and cortex)
@@ -5580,7 +5571,29 @@ switch what
             end % i (contrasts)
             
         end
+    case 'CHECK:rename_physio'
+        % Example: sc1_sc2_mdtb_backup('CHECK:rename_physio')
         
+        sn = [24, 25, 26, 27, 28];
+        PhysioDir = fullfile(baseDir, 'Physio');
+        
+        cd(PhysioDir)
+        
+        for s = sn
+            for sess = 2
+                for sca = 1:8
+                    cd(fullfile(PhysioDir, subj_name{s}));
+                    oldName = sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, sess, sca);
+                    newName = sprintf('%s_sess%d_scan%d_lin_reg.mat', subj_name{s}, sess, sca+8);
+                    movefile(oldName, newName);
+                    
+%                     oldName = sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, sess, sca);
+%                     newName = sprintf('%s_sess%d_scan%d_R.mat', subj_name{s}, sess, sca+8);
+%                     movefile(oldName, newName);
+                    
+                end
+            end
+        end
     case 'MDTB:move_files'
         % moving files to the server
         % Example: sc1_sc2_mdtb('MDTB:move_files')
@@ -5747,7 +5760,7 @@ end
 
 % Local functions
 function dircheck(dir)
-if ~exist(dir,'dir');
+if ~exist(dir,'dir')
     warning('%s doesn''t exist. Creating one now. You''re welcome! \n',dir);
     mkdir(dir);
 
