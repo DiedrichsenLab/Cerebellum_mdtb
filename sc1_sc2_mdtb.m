@@ -1348,7 +1348,7 @@ switch what
         experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
         type           = 'con';              %% enter the image you want to reslice to suit space
         glm            = 8;                  %% glm number
-        con_vs         = 'average_1';        %% is the contrast calculated vs 'rest' or 'average'
+        con_vs         = 'average_2';        %% is the contrast calculated vs 'rest' or 'average'
         which          = 'task';             %% you may choose 'cond' or 'task'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which'});
