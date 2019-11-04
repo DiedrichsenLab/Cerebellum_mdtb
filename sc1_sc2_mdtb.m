@@ -434,7 +434,7 @@ switch what
         announceTime = 5;
                 
         % load in task information
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc = getrow(C, C.StudyNum == experiment_num);
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
@@ -504,9 +504,9 @@ switch what
                     ST  = find(strcmp(P.taskName,Cc.taskNames{ic0}));
                     instruct_onset = P.realStartTime(ST)-J.timing.RT*numDummys; %% get the instruction start time for the first task                   
 %                     instruct_onset = P.realStartTime(it)-J.timing.RT*numDummys; %% get the instruction start time for the first task
-                    J.sess(r).cond(ic).name     = Cc.condNames{1};
+                    J.sess(r).cond(ic).name     = 'Instruct';
                     J.sess(r).cond(ic).onset    = instruct_onset(1); % correct start time for numDummys and announcetime included (not for instruct)
-                    J.sess(r).cond(ic).duration = Cc.duration(1);  % duration of trials (+ fixation cross) we are modeling
+                    J.sess(r).cond(ic).duration = 5;  % duration of trials (+ fixation cross) we are modeling
                     J.sess(r).cond(ic).tmod     = 0;
                     J.sess(r).cond(ic).orth     = 0;
                     J.sess(r).cond(ic).pmod     = struct('name', {}, 'param', {}, 'poly', {});
@@ -603,7 +603,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-            spm_rwls_run_fmri_spec(J);
+%             spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -854,6 +854,12 @@ switch what
                         % TO TRY below - no instructions as contrasts
                         con(1,logical(T.(which) == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));
                         con(1,logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0)));
+                    case 'average_3' % contrast against the average of all the tasks (including the instructions)
+                    case 'average_4' % contrast against the average of all the tasks (not including the instructions)
+                        con        = zeros(1,size(SPM.xX.X, 2));
+                        % TO TRY below - no instructions as contrasts
+                        con(1,logical(T.(which) == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));
+                        con(1,logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0))) = -1./sum((T.inst == 0));
                     case 'rest'
                         con                     = zeros(1,size(SPM.xX.X,2));
                         con(:,logical(T.(which) == ucondition(tt))) = 1;
@@ -1097,10 +1103,10 @@ switch what
         wbDir  = 'surfaceWB';
         
         % go to the directory where fs_LR atlas is.
-        groupSurfDir     = fullfile(baseDir, experiment, wbDir, 'data', sprintf('group%dk', atlas_res));
+        atlasDir         = fullfile(baseDir, sprintf('fs_LR_%d', atlas_res));
         groupSurfDir_glm = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), sprintf('group%dk', atlas_res));
         dircheck(groupSurfDir_glm);
-        cd(groupSurfDir);
+        cd(atlasDir);
         
         for h = 1:2 % two hemispheres
             for cc = 1:length(conNames)
@@ -1109,7 +1115,7 @@ switch what
                     infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
                     
                     if smooth
-                        surfFile    = fullfile(groupSurfDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
+                        surfFile    = fullfile(atlasDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
                         surf_smooth(infilenames{s},'surf',surfFile,'kernel',kernel); % smooth outfilenames - it will prefix an 's'
                     end
                     s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
@@ -1348,7 +1354,7 @@ switch what
         experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
         type           = 'con';              %% enter the image you want to reslice to suit space
         glm            = 8;                  %% glm number
-        con_vs         = 'average_1';        %% is the contrast calculated vs 'rest' or 'average'
+        con_vs         = 'average_2';        %% is the contrast calculated vs 'rest' or 'average'
         which          = 'task';             %% you may choose 'cond' or 'task'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which'});
@@ -1544,7 +1550,7 @@ switch what
         
         keyboard;
         
-    case 'HOUSEKEEPING_renameSPM'     % rename SPM directories
+    case 'Houskeeping:renameSPM'     % rename SPM directories
         % Example: sc1_sc2_mdtb('HOUSEKEEPING_renameSPM', 'experiment_num', 2, 'glm', 8)
         
         sn             = returnSubjs;
