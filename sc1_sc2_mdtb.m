@@ -854,6 +854,12 @@ switch what
                         % TO TRY below - no instructions as contrasts
                         con(1,logical(T.(which) == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));
                         con(1,logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0))) = -1./sum(logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0)));
+                    case 'average_3' % contrast against the average of all the tasks (including the instructions)
+                    case 'average_4' % contrast against the average of all the tasks (not including the instructions)
+                        con        = zeros(1,size(SPM.xX.X, 2));
+                        % TO TRY below - no instructions as contrasts
+                        con(1,logical(T.(which) == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));
+                        con(1,logical((T.(which) ~= ucondition(tt)) .* (T.inst == 0))) = -1./sum((T.inst == 0));
                     case 'rest'
                         con                     = zeros(1,size(SPM.xX.X,2));
                         con(:,logical(T.(which) == ucondition(tt))) = 1;

@@ -2488,11 +2488,11 @@ switch what
         
         sn          = returnSubjs;    %%
         glm         = 8;              %%
-        experiment  = 2;              %%
+        experiment  = 1;              %%
         ppmethod    = '';             %%
         which       = 'task';         %%
         igroup      = 0;              %% do it for the group average files or for the individual subjects?
-        con_vs      = 'average_1'; %% choose 'average_1', 'average_2', or 'rest', or 'rest_taskCon' (if glm7 and task)
+        con_vs      = 'average_2'; %% choose 'average_1', 'average_2', or 'rest', or 'rest_taskCon' (if glm7 and task)
 %         atlas_res   = 32;           %% atlas resolution can either be 32 or 64
         replaceNaNs = 1;              %% set to 1 or 0 
         
