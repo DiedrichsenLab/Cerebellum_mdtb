@@ -1262,9 +1262,9 @@ switch what
             glmSubjDir = fullfile(glmDir, subj_name{s});
             outDir     = fullfile(glmSuitDir, subj_name{s});
             
-            job.subj.affineTr  = {fullfile(baseDir, experiment, suitDir, 'anatomicals', subj_name{s}, 'Affine_c_anatomical_seg1.mat')};
-            job.subj.flowfield = {fullfile(baseDir, experiment, suitDir, 'anatomicals', subj_name{s},'u_a_c_anatomical_seg1.nii')};
-            job.subj.mask      = {fullfile(baseDir, experiment, suitDir, 'anatomicals', subj_name{s}, sprintf('%s.nii', mask))};
+            job.subj.affineTr  = {fullfile(baseDir, 'sc1', suitDir, 'anatomicals', subj_name{s}, 'Affine_c_anatomical_seg1.mat')};
+            job.subj.flowfield = {fullfile(baseDir, 'sc1', suitDir, 'anatomicals', subj_name{s},'u_a_c_anatomical_seg1.nii')};
+            job.subj.mask      = {fullfile(baseDir, 'sc1', suitDir, 'anatomicals', subj_name{s}, sprintf('%s.nii', mask))};
             job.vox            = [2 2 2];
             
             fprintf('******************** using dartel to reslice %s images to suit space for %s ********************\n', type, subj_name{s});
@@ -1357,7 +1357,7 @@ switch what
         con_vs         = 'average_4';        %% is the contrast calculated vs 'rest' or 'average'
         which          = 'task';             %% you may choose 'cond' or 'task'
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which', 'con_vs'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1554,7 +1554,7 @@ switch what
         % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
         sn             = returnSubjs;
-        experiment_num = 1;
+        experiment_num = 2;
         glm            = 8;
         
         vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
@@ -1582,7 +1582,7 @@ end
 
 % Local functions
 function dircheck(dir)
-if ~exist(dir,'dir');
+if ~exist(dir,'dir')
     warning('%s doesn''t exist. Creating one now. You''re welcome! \n',dir);
     mkdir(dir);
 
