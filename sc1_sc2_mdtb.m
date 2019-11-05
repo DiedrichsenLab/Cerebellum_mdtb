@@ -813,7 +813,7 @@ switch what
         sn             = returnSubjs;        %% list of subjects
         glm            = 8;              %% The glm number :)
         experiment_num = 1;
-        con_vs         = 'average_1'; %% set it to 'rest' or 'average' (depending on the contrast you want)
+        con_vs         = 'average_4'; %% set it to 'rest' or 'average' (depending on the contrast you want)
         which          = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
         vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'which'})
@@ -1245,8 +1245,9 @@ switch what
         type           = 'con';                  %% enter the image you want to reslice to suit space
         glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
+        con_vs         = 'average_4';            %% option for the contrasts and spmT
         
-        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask', 'con_vs'});
         
         experiment = sprintf('sc%d', experiment_num);
         
@@ -1279,14 +1280,14 @@ switch what
                 case 'con'  
                     % reslice all the contrasts (vs rest and vs average)
                     images = 'con';
-                    source = dir(fullfile(glmSubjDir,sprintf('*%s*',images))); % images to be resliced
+                    source = dir(fullfile(glmSubjDir,sprintf('*%s*%s.nii',images, con_vs))); % images to be resliced
                     cd(glmSubjDir);
                     
                     job.subj.resample = {source.name};
                     suit_reslice_dartel(job);
                 case 'spmT'
                     images = 'spmT_';
-                    source = dir(fullfile(glmSubjDir,sprintf('*%s*',images))); % images to be resliced
+                    source = dir(fullfile(glmSubjDir,sprintf('*%s*%s.nii',images, con_vs))); % images to be resliced
                     cd(glmSubjDir);
                     
                     job.subj.resample = {source.name};
@@ -1353,7 +1354,7 @@ switch what
         experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
         type           = 'con';              %% enter the image you want to reslice to suit space
         glm            = 8;                  %% glm number
-        con_vs         = 'average_2';        %% is the contrast calculated vs 'rest' or 'average'
+        con_vs         = 'average_4';        %% is the contrast calculated vs 'rest' or 'average'
         which          = 'task';             %% you may choose 'cond' or 'task'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which'});
@@ -1550,7 +1551,7 @@ switch what
         keyboard;
         
     case 'Houskeeping:renameSPM'     % rename SPM directories
-        % Example: sc1_sc2_mdtb('HOUSEKEEPING_renameSPM', 'experiment_num', 2, 'glm', 8)
+        % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
         sn             = returnSubjs;
         experiment_num = 1;
