@@ -798,6 +798,46 @@ switch what
             fprintf('******************** glm%d parameters estimated for %s ********************\n\n', glm, subj_name{s});
         end %sn        
     
+    case 'mdtb:uw'
+        % univariately prewhitens the betas
+        % Example: sc1_sc2_mdtb('mdtb:uw', 'sn', 2, 'experiment_num', 1, 'glm', 8)
+        
+        sn             = returnSubjs;
+        experiment_num = 1;
+        glm            = 8;
+        type           = 'beta';        %% it can be set to 'beta' or 'con';
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting directories
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        
+        for s = sn
+            
+            % load in SPM_info file for task information
+            T = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            nBeta = length(T.TN) + 16; % there are 16 intercepts for each run
+            % load in the ResMS image
+            VresMS = spm_vol(fullfile(glmDir,subj_name{s},'ResMS.nii'));
+            ResMS  = spm_read_vols(VresMS);
+            ResMS(ResMS==0)=NaN;
+            % prewhiten each beta value
+            %%% load in each beta image
+            for ib = 1: nBeta 
+                Vb = spm_vol(fullfile(glmDir, subj_name{s}, sprintf('beta_%04.f.nii', ib)));
+                B  = spm_read_vols(Vb);
+                
+                % divide it by the ResMs
+                UWb = bsxfun(@rdivide, B, sqrt(ResMS)); 
+                
+                % save the new image file
+                spm_write_vol(Vb,UWb)
+            end % ib (number of betas)
+            
+        end % s (sn)
+
     case 'GLM:mdtb:contrast'
         %%% Calculating contrast images.
         % 'SPM_light' is created in this step (xVi is removed as it slows
@@ -925,11 +965,11 @@ switch what
                         con                  = zeros(1,size(SPM.xX.X,2));
                         con(:,logical(T.task == utask(tt))) = 1;
                         con                  = con/abs(sum(con));
-                    case 'average' % contrast against the average of all the tasks or all the other tasks???
-                        con                                = zeros(1,size(SPM.xX.X,2));
-                        con(:,T_rd.task == task(tt))       = 1;
-                        con                                = con/abs(sum(con));
-                        con                                = bsxfun(@minus, con, 1/length(T.cond));
+                    case 'average_4' % contrast against the average of all the tasks or all the other tasks???
+                        con        = zeros(1,size(SPM.xX.X, 2));
+                        % TO TRY below - no instructions as contrasts
+                        con(1,logical(T.task      == utask(tt))) = 1./sum(logical(T.task == utask(tt)));                        
+                        con(1, logical(T.inst == 0)) = con(1, logical(T.inst == 0)) - 1./sum(T.inst == 0);   
                     case 'average_1' % contrast vs the average of all the tasks
                         con        = zeros(1,size(SPM.xX.X, 2));
                         con(1,logical(T.task == utask(tt))) = 1./sum(logical(T.task == utask(tt)));
@@ -939,6 +979,7 @@ switch what
                         % TO TRY below - no instructions as contrasts
                         con(1,logical(T.task == utask(tt))) = 1./sum(logical(T.task == utask(tt)));
                         con(1,logical(T.task ~= utask(tt) .* (T.inst == 0))) = -1./sum(logical((T.task ~= utask(tt)) .* (T.inst == 0)));
+                        
                 end
                 % fix the name!!!!!!!!!!!!!!!!
                 name = sprintf('%s-%s_taskCon',char(unique(Cc.taskNames(Cc.taskNum == utask(tt)))), con_vs);
@@ -971,7 +1012,7 @@ switch what
         atlas_res      = 32;          %% set it to 32 or 164
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
         glm            = 7;           %% glm number
-        con_vs         = 'average_1'; %% set it to 'rest' or 'average'
+        con_vs         = 'average_2'; %% set it to 'rest' or 'average'
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
         
@@ -1010,6 +1051,128 @@ switch what
                 end % ic (condition/contrast)   
             end % hemi
         end % sn    
+    case 'SURF:mdtb:map_con2'
+        % projects individual contrast map volume files for the conditions
+        % to the workbench surface.
+        % It also projects the ResMS image to the surface and also can
+        % univariately whiten the contrast maps using the ResMs.
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con2', 'sn', 2, 'glm', 8, 'experiment_num', 1)
+    
+        sn             = returnSubjs; %% list of subjects
+        atlas_res      = 32;          %% set it to 32 or 164
+        experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
+        glm            = 7;           %% glm number
+        con_vs         = 'average_4'; %% set it to 'rest' or 'average'
+        
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting glm and surfaceWB directory
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        wbDir  = 'surfaceWB';
+        glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
+        dircheck(glmSurfDir);
+        
+        for s = sn
+            fprintf('******************** start mapping contrasts to surface for %s ********************\n', subj_name{s});
+            subjSurfDir = fullfile(baseDir, 'sc1', wbDir, 'data', subj_name{s});
+            dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
+            
+            T        = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            conNames = unique(T.TN);
+            for h = 1:2 % two hemispheres
+                white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                C1      = gifti(white);
+                C2      = gifti(pial);
+                
+                % preallocating!
+                filenames   = cell(1, length(conNames) + 1); % a cell is added for the ResMS
+                column_name = cell(1, length(conNames) + 1); % a cell is added for the ResMS
+                for ic = 1:length(conNames)
+                    filenames{ic}   = fullfile(glmDir, subj_name{s}, sprintf('con_%s-%s.nii', conNames{ic}, con_vs));
+                    column_name{ic} = conNames{ic};
+                end % ic (condition/contrast)  
+                filenames{ic + 1}   = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
+                column_name{ic + 1} = 'ResMS';
+                
+                outfile = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.con-%s.%dk.func.gii', subj_name{s}, hemI{h}, con_vs, atlas_res)); 
+                
+                G = surf_vol2surf(C1.vertices, C2.vertices, filenames, 'column_names', column_name, 'anatomicalStruct', hemName{h});
+                save(G, outfile);
+            end % hemi
+        end % sn  
+    case 'SURF:mdtb:map_con_UW'
+        % maps the contrasts and ResMS to the surface and also univariately
+        % noise normalizes the contrasts using ResMS;
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_UW', 'sn', 2, 'experiment_num', 1, 'glm', 8)
+        
+        sn             = returnSubjs; %% list of subjects
+        atlas_res      = 32;          %% set it to 32 or 164
+        experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
+        glm            = 7;           %% glm number
+        con_vs         = 'average_4'; %% set it to 'rest' or 'average'
+        
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting glm and surfaceWB directory
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        wbDir  = 'surfaceWB';
+        glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
+        dircheck(glmSurfDir);
+        
+        for s = sn
+            fprintf('******************** start mapping contrasts to surface for %s ********************\n', subj_name{s});
+            subjSurfDir = fullfile(baseDir, 'sc1', wbDir, 'data', subj_name{s});
+            dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
+            
+            T        = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            conNames = unique(T.TN);
+            for h = 1:2 % two hemispheres
+                white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                C1      = gifti(white);
+                C2      = gifti(pial);
+                
+                % map the ResMS to surface
+                fprintf('******************** mapping ResMS to surface for %s hemi %s ********************\n', hemI{h}, subj_name{s});
+                ResMsImage{1}    = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
+                ResMs_colName{1} = 'ResMS.nii';
+                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}));
+                
+                G_ResMs = surf_vol2surf(C1.vertices,C2.vertices,ResMsImage,'column_names', ResMs_colName, ...
+                        'anatomicalStruct',hemName{h});
+                save(G_ResMs, ResMs_outfile);
+                for ic = 1:length(conNames)
+                    conMapName      = sprintf('con_%s-%s', conNames{ic}, con_vs);
+                    images{1}       = fullfile(glmDir, subj_name{s}, sprintf('%s.nii', conMapName));
+                    column_name{1}  = sprintf('con_%s-%s.nii', conNames{ic}, con_vs);
+                    outfile         = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.con_%s-%s.%dk.func.gii', ...
+                        subj_name{s}, hemI{h}, conNames{ic}, con_vs, atlas_res));
+                    G               = surf_vol2surf(C1.vertices,C2.vertices,images,'column_names', column_name, ...
+                        'anatomicalStruct',hemName{h});
+                    save(G, outfile);
+                    % univariate prewhitening
+                    Data(:,ic) = G.cdata ./ sqrt(G_ResMs.cdata);
+                    fprintf('******************** mapping to surface for %s hemi %s contrast %s done********************\n', subj_name{s}, ...
+                        hemI{h}, conMapName);
+                    
+                    G_ind       = surf_makeFuncGifti(Data(:,ic),'anatomicalStruct',hemName{h},'columnNames', conNames);
+                    outfile_ind = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.wcon_%s-%s.%dk.func.gii', ...
+                                        subj_name{s}, hemI{h}, conNames{ic}, con_vs, atlas_res));
+                    save(G_ind, outfile_ind);
+                end % ic (condition/contrast) 
+%                 Data    = bsxfun(@minus,Data,mean(Data,2));
+                G_single       = surf_makeFuncGifti(Data,'anatomicalStruct',hemName{h},'columnNames', conNames);
+                outfile_single = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.wcon-%s.%dk.func.gii', ...
+                    subj_name{s}, hemI{h}, con_vs, atlas_res));
+                save(G_single, outfile_single);
+            end % hemi
+        end % sn 
+        
     case 'SURF:mdtb:map_con_task'
         % projects individual contrast map volume files for tasks to
         % WorkBench surface
@@ -1074,12 +1237,14 @@ switch what
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
         glm            = 8;           %% glm number
         replaceNaN     = 1;           %% replacing NaNs
-        con_vs         = 'average_1'; %% contrast was calculated against 'rest' or 'average'        
+        con_vs         = 'average_4'; %% contrast was calculated against 'rest' or 'average'        
         smooth         = 1;           %% add smoothing
         kernel         = 1;           %% for smoothing
         which          = 'task';      %% 'task' for glm8 and 'cond' for glm7
+        normmode       = 'UW';        %% can be set to either 'UW' or 'NW';
         
-        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which'});
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', ...
+            'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which', 'normmode'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1111,29 +1276,56 @@ switch what
             for cc = 1:length(conNames)
                 for s = 1:length(sn)
                     %%% make the group metric file for each contrasts
-                    infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
-                    
+                    switch normmode
+                        case 'UW' % with noise normalization
+                            infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), ...
+                                subj_name{sn(s)},sprintf('%s.%s.wcon_%s-%s.%dk.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs, atlas_res));
+                        case 'NW' % no noise normalization
+                            infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), ...
+                                subj_name{sn(s)},sprintf('%s.%s.con_%s-%s.%dk.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs, atlas_res));
+                    end
+
                     if smooth
                         surfFile    = fullfile(atlasDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
                         surf_smooth(infilenames{s},'surf',surfFile,'kernel',kernel); % smooth outfilenames - it will prefix an 's'
                     end
-                    s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs));
-                
+                    
+                    switch normmode
+                        case 'UW' % with univariate noise normalization
+                            s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.wcon_%s-%s.%dk.func.gii', ...
+                                subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs, atlas_res));
+                        case 'NW' % no univariate noise normalization
+                            s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s.%dk.func.gii', ...
+                                subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs, atlas_res));
+                    end
                 end % sn
-                outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s.func.gii',hemI{h},conNames{cc}, con_vs));
-                summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s.func.gii',hemI{h},conNames{cc}, con_vs));
                 
+                switch normmode
+                    case 'UW' % with noise normalization
+                        outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.wcon_%s-%s.%dk.func.gii',hemI{h},conNames{cc}, con_vs, atlas_res));
+                        summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.wcon_%s-%s.%dk.func.gii',hemI{h},conNames{cc}, con_vs, atlas_res));
+                    case 'NW' % no noise normalization
+                        outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s.%dk.func.gii',hemI{h},conNames{cc}, con_vs, atlas_res));
+                        summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s.%dk.func.gii',hemI{h},conNames{cc}, con_vs, atlas_res));
+                end
+
                 surf_groupGiftis(infilenames, 'outfilenames', {outfilenames}, 'groupsummary', summaryname, 'replaceNaNs', replaceNaN);
                 if smooth % also save the smoothed versions
-                    s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
-                    s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
+                    switch normmode
+                        case 'UW' % univariate noise normalization
+                            s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.wcon_%s-%s.%dk.func.gii', hemI{h},conNames{cc}, con_vs, atlas_res));
+                            s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.wcon_%s-%s.%dk.func.gii', hemI{h},conNames{cc}, con_vs, atlas_res));
+                        case 'NW' % no noise normalization
+                            s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
+                            s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s.func.gii', hemI{h},conNames{cc}, con_vs));
+                    end
                     surf_groupGiftis(s_infilenames, 'outfilenames', {s_outfilenames}, 'groupsummary', s_summaryname, 'replaceNaNs', replaceNaN);
                 end
                 
-                % delet the smoothed contrasts for each subject
-                for s = 1:length(sn)
-                    delete(fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs)));
-                end
+%                 % delet the smoothed contrasts for each subject
+%                 for s = 1:length(sn)
+%                     delete(fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, conNames{cc}, con_vs)));
+%                 end
                 
                 fprintf('******************** group average contrast for %s vs %s is created! ********************\n\n', conNames{cc}, con_vs);
             end % contrasts(ic)

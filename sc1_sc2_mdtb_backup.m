@@ -5596,15 +5596,15 @@ switch what
         end
     case 'MDTB:move_files'
         % moving files to the server
-        % Example: sc1_sc2_mdtb('MDTB:move_files')
+        % Example: sc1_sc2_mdtb_backup('MDTB:move_files')
         
         sn         = returnSubjs; 
         ppmethod   = '';
         experiment = 1;
-        glm        = 7;
-        con_vs     = 'rest';
-        nTrans     = 256;
-        copywhich  = 'GLM';
+        glm        = 8;
+        con_vs     = 'average_2';
+        nTrans     = 272;
+        copywhich  = 'transitions';
         serverDir  = '/Volumes/MotorControl/data/super_cerebellum_new';
 
         vararginoptions(varargin, {'sn', 'ppmethod', 'glm', 'experiment', 'con_vs', 'nTrans', 'copywhich'});
