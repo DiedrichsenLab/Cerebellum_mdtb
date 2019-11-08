@@ -935,12 +935,12 @@ switch what
         sn             = returnSubjs;  %% list of subjects
         glm            = 7;            %% The glm number :)
         experiment_num = 1;
-        con_vs         = 'average_1';  %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
+        con_vs         = 'average_6';  %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
         
         vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs'})
         
         % gt the task info
-        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc  = getrow(C,C.StudyNum == experiment_num);
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
@@ -952,7 +952,7 @@ switch what
             fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
             load(fullfile(glmDir, subj_name{s}, 'SPM.mat'))
             
-            SPM  = rmfield(SPM,'xCon');
+%             SPM  = rmfield(SPM,'xCon');
             T    = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
             
             % t contrast for tasks
@@ -979,7 +979,12 @@ switch what
                         % TO TRY below - no instructions as contrasts
                         con(1,logical(T.task == utask(tt))) = 1./sum(logical(T.task == utask(tt)));
                         con(1,logical(T.task ~= utask(tt) .* (T.inst == 0))) = -1./sum(logical((T.task ~= utask(tt)) .* (T.inst == 0)));
-                        
+                    case 'average_6' % contrast vs average of all tasks except for instruction for glm4 
+                        % SPM_info.mat file for glm4 doesn't have the inst
+                        % field.
+                        con = zeros(1, size(SPM.xX.X, 2));
+                        con(1,logical(T.task == utask(tt))) = 1./sum(logical(T.task == utask(tt)));
+                        con(1,logical(T.task ~= utask(tt) .* (T.task ~= 0))) = -1./sum(logical((T.task ~= utask(tt)) .* (T.task ~= 0)));
                 end
                 % fix the name!!!!!!!!!!!!!!!!
                 name = sprintf('%s-%s_taskCon',char(unique(Cc.taskNames(Cc.taskNum == utask(tt)))), con_vs);
@@ -994,7 +999,7 @@ switch what
 
             % rename contrast images and spmT images
             conName = {'con','spmT'};
-            for i = 1:length(SPM.xCon)
+            for i = 1: 17%length(SPM.xCon)
                 for n = 1:numel(conName)
                     oldName{i} = fullfile(glmDir, subj_name{s}, sprintf('%s_%2.4d.nii',conName{n},i));
                     newName{i} = fullfile(glmDir, subj_name{s}, sprintf('%s_%s.nii',conName{n},SPM.xCon(i).name));
@@ -1181,11 +1186,11 @@ switch what
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
-        glm            = 7;           %% glm number
-        con_vs         = 'average_1'; %% set it to 'rest' or 'average_1' or 'average_2'
+        glm            = 4;           %% glm number
+        con_vs         = 'average_6'; %% set it to 'rest' or 'average_1' or 'average_2'
         
         % gt the task info
-        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        C   = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc  = getrow(C,C.StudyNum == experiment_num);
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
@@ -1204,7 +1209,7 @@ switch what
             dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
             
             % get the task names
-            conNames = unique(Cc.taskNames);
+            conNames = unique(Cc.taskNames, 'stable');
             
             for h = 1:2 % two hemispheres
                 white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
@@ -1289,7 +1294,6 @@ switch what
                         surfFile    = fullfile(atlasDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
                         surf_smooth(infilenames{s},'surf',surfFile,'kernel',kernel); % smooth outfilenames - it will prefix an 's'
                     end
-                    
                     switch normmode
                         case 'UW' % with univariate noise normalization
                             s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.wcon_%s-%s.%dk.func.gii', ...
@@ -1337,18 +1341,18 @@ switch what
         sn             = returnSubjs;   %% list of subjects
         atlas_res      = 32;     %% set it to 32 or 164
         experiment_num = 1;      %% enter 1 for sc1 and 2 for sc2
-        glm            = 8;      %% glm number
+        glm            = 4;      %% glm number
         replaceNaN     = 1;      %% replacing NaNs
-        con_vs         = 'rest'; %% contrast was calculated against 'rest' or 'average'        
+        con_vs         = 'average_6'; %% contrast was calculated against 'rest' or 'average'        
         smooth         = 1;      %% add smoothing
         kernel         = 1;      %% for smoothing
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'replaceNaN', 'con_vs', 'smooth', 'kernel'});
         
         % load in task information
-        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
         Cc       = getrow(C, C.StudyNum == experiment_num);
-        taskNames = unique(Cc.taskNames);
+        taskNames = unique(Cc.taskNames, 'stable');
         
         experiment = sprintf('sc%d', experiment_num);
         
@@ -1366,28 +1370,28 @@ switch what
                 for s = 1:length(sn)
                     %%% make the group metric file for each contrasts
 %                     infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
-                    infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
+                    infilenames{s}   = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)},sprintf('%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
                     
                     if smooth
                         surfFile    = fullfile(groupSurfDir,sprintf('fs_LR.32k.%s.inflated.surf.gii',hemI{h}));
                         surf_smooth(infilenames{s},'surf',surfFile,'kernel',kernel); % smooth outfilenames - it will prefix an 's'
                     end
 %                     s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
-                    s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
+                    s_infilenames{s} = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), subj_name{sn(s)}, sprintf('s%s.%s.con_%s-%s_taskCon.func.gii', subj_name{sn(s)}, hemI{h}, taskNames{cc}, con_vs));
                 
                 end % sn
 %                 outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
 %                 summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
                 
-                outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s.func.gii',hemI{h},taskNames{cc}, con_vs));
-                summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s.func.gii',hemI{h},taskNames{cc}, con_vs));
+                outfilenames    = fullfile(groupSurfDir_glm,sprintf('%s.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
+                summaryname     = fullfile(groupSurfDir_glm,sprintf('%s.group.con_%s-%s_taskCon.func.gii',hemI{h},taskNames{cc}, con_vs));
                 
                 surf_groupGiftis(infilenames, 'outfilenames', {outfilenames}, 'groupsummary', summaryname, 'replaceNaNs', replaceNaN);
                 if smooth % also save the smoothed versions
 %                     s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
-                    s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s.func.gii', hemI{h},taskNames{cc}, con_vs));
+                    s_outfilenames    = fullfile(groupSurfDir_glm,sprintf('s%s.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
 %                     s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
-                    s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s.func.gii', hemI{h},taskNames{cc}, con_vs));
+                    s_summaryname     = fullfile(groupSurfDir_glm,sprintf('s%s.group.con_%s-%s_taskCon.func.gii', hemI{h},taskNames{cc}, con_vs));
                     surf_groupGiftis(s_infilenames, 'outfilenames', {s_outfilenames}, 'groupsummary', s_summaryname, 'replaceNaNs', replaceNaN);
                 end
                 
@@ -1746,8 +1750,8 @@ switch what
         % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
         sn             = returnSubjs;
-        experiment_num = 2;
-        glm            = 8;
+        experiment_num = 1;
+        glm            = 4;
         
         vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
         
