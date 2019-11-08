@@ -935,7 +935,7 @@ switch what
         sn             = returnSubjs;  %% list of subjects
         glm            = 7;            %% The glm number :)
         experiment_num = 1;
-        con_vs         = 'average_6';  %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
+        con_vs         = 'rest';  %% set it to 'rest' or 'average_1' or 'average_2' (depending on the contrast you want)
         
         vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs'})
         
@@ -1017,7 +1017,7 @@ switch what
         atlas_res      = 32;          %% set it to 32 or 164
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
         glm            = 7;           %% glm number
-        con_vs         = 'average_2'; %% set it to 'rest' or 'average'
+        con_vs         = 'rest'; %% set it to 'rest' or 'average'
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
         
@@ -1046,8 +1046,8 @@ switch what
                     conMapName      = sprintf('con_%s-%s', conNames{ic}, con_vs);
                     images{1}       = fullfile(glmDir, subj_name{s}, sprintf('%s.nii', conMapName));
                     column_name{1}  = sprintf('con_%s-%s.nii', conNames{ic}, con_vs);
-                    outfile         = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.con_%s-%s.func.gii', ...
-                        subj_name{s}, hemI{h}, conNames{ic}, con_vs));
+                    outfile         = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.con_%s-%s.%dk.func.gii', ...
+                        subj_name{s}, hemI{h}, conNames{ic}, con_vs, atlas_res));
                     G               = surf_vol2surf(C1.vertices,C2.vertices,images,'column_names', column_name, ...
                         'anatomicalStruct',hemName{h});
                     save(G, outfile);
@@ -1240,13 +1240,13 @@ switch what
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
-        glm            = 8;           %% glm number
+        glm            = 4;           %% glm number
         replaceNaN     = 1;           %% replacing NaNs
-        con_vs         = 'average_4'; %% contrast was calculated against 'rest' or 'average'        
+        con_vs         = 'rest'; %% contrast was calculated against 'rest' or 'average'        
         smooth         = 1;           %% add smoothing
         kernel         = 1;           %% for smoothing
         which          = 'task';      %% 'task' for glm8 and 'cond' for glm7
-        normmode       = 'UW';        %% can be set to either 'UW' or 'NW';
+        normmode       = 'NW';        %% can be set to either 'UW' or 'NW';
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', ...
             'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which', 'normmode'});
