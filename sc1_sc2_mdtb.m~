@@ -18,8 +18,13 @@ numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
 <<<<<<< HEAD
+<<<<<<< HEAD
 % baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
 baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+=======
+ baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
+%baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+>>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
 =======
  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
 %baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
@@ -877,7 +882,11 @@ switch what
             
             % t contrast for tasks
 <<<<<<< HEAD
+<<<<<<< HEAD
             ucondition = unique(T.(which), 'stable');
+=======
+            ucondition = unique(T.(which));
+>>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
 =======
             ucondition = unique(T.(which));
 >>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
@@ -908,14 +917,20 @@ switch what
                         % TO TRY below - no instructions as contrasts
                         con(1,logical(T.(which)      == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));                        
 <<<<<<< HEAD
+<<<<<<< HEAD
                         con(1, logical(T.inst == 0)) = con(1, logical(T.inst == 0)) - 1./sum(T.inst == 0);                        
 =======
+=======
+>>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
                         con(1, logical(T.inst == 0)) = con(1, logical(T.inst == 0)) - 1./sum(T.inst == 0);     
                        
                        %con(1,T.(which)==ucondition(tt)) = 1./sum(T.(which) == ucondition(tt));
                        con(1,T.inst==0) = con(T.inst==0) - 1./sum(T.inst==0);
                        %con(1,T.(which)~=ucondition(tt) & T.inst==0) = -1./sum(T.(which)~=ucondition(tt) & T.inst==0);
                       % con(1,T.inst==0) = con-1./sum(T.inst==0);
+<<<<<<< HEAD
+>>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
+=======
 >>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
                     case 'rest'
                         con                     = zeros(1,size(SPM.xX.X,2));
@@ -1362,7 +1377,11 @@ switch what
         glm            = 4;      %% glm number
         replaceNaN     = 1;      %% replacing NaNs
 <<<<<<< HEAD
+<<<<<<< HEAD
         con_vs         = 'rest'; %% contrast was calculated against 'rest' or 'average'        
+=======
+        con_vs         = 'average_6'; %% contrast was calculated against 'rest' or 'average'        
+>>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
 =======
         con_vs         = 'average_6'; %% contrast was calculated against 'rest' or 'average'        
 >>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
