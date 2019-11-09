@@ -17,8 +17,8 @@ numDummys = 3;   % number of dummy scans per run
 numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
- baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
-%baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+%  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
+baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 
 %%% setting directory names
@@ -1437,10 +1437,7 @@ switch what
            surf_groupGiftis(infilenames,'outfilenames',{outfilenames},'groupsummary',summaryname,'replaceNaNs',1);  
            fprintf('...done all.\n');
        end
-<<<<<<< HEAD
-       
-=======
->>>>>>> d887c64aff860013744549d8ab7ddeeed6e05844
+    
     case 'SUIT:mdtb:suit_parcel2native'
         % maps each atlas of the suit into individual space
         % Example: sc1_sc2_mdtb('SUIT:mdtb:suit_parcel2native', 'sn', [3])
