@@ -898,7 +898,12 @@ switch what
                         con        = zeros(1,size(SPM.xX.X, 2));
                         % TO TRY below - no instructions as contrasts
                         con(1,logical(T.(which)      == ucondition(tt))) = 1./sum(logical(T.(which) == ucondition(tt)));                        
-                        con(1, logical(T.inst == 0)) = con(1, logical(T.inst == 0)) - 1./sum(T.inst == 0);                        
+                        con(1, logical(T.inst == 0)) = con(1, logical(T.inst == 0)) - 1./sum(T.inst == 0);     
+                       
+                       %con(1,T.(which)==ucondition(tt)) = 1./sum(T.(which) == ucondition(tt));
+                       con(1,T.inst==0) = con(T.inst==0) - 1./sum(T.inst==0);
+                       %con(1,T.(which)~=ucondition(tt) & T.inst==0) = -1./sum(T.(which)~=ucondition(tt) & T.inst==0);
+                      % con(1,T.inst==0) = con-1./sum(T.inst==0);
                     case 'rest'
                         con                     = zeros(1,size(SPM.xX.X,2));
                         con(:,logical(T.(which) == ucondition(tt))) = 1;
@@ -1403,40 +1408,7 @@ switch what
                 fprintf('******************** group average contrast for %s vs %s is created! ********************\n\n', taskNames{cc}, con_vs);
             end % contrasts(ic)
         end % hemi(h)
-    case 'SURF:groupmap_meancond'
-        % computes the mean across all conditions (relative to rest)
-        glm = 4;
-        experiment_num = 1;      %% enter 1 for sc1 and 2 for sc2
-        atlas_res = 32;     %% set it to 32 or 164
-        sn=returnSubjs;
-        vararginoptions(varargin,{'glm'});
-        % load in task information
-        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
-        Cc       = getrow(C, C.StudyNum == experiment_num);
-        condNames = unique(Cc.condNames, 'stable');       
-        experiment = sprintf('sc%d',experiment_num);
         
-       groupSurfDir = fullfile(baseDir,experiment,'surfaceWB',sprintf('glm%d',glm),sprintf('group%dk',atlas_res));
-       infilenames = cell(1,length(sn));
-       for h=1:2 % hemisphere
-           fprintf('Working on %s subjects:\n',hemName{h});
-           for s=1:length(sn)
-               fprintf('%d.',s);
-               subjDir = fullfile(baseDir,experiment,'surfaceWB',sprintf('glm%d',glm),subj_name{sn(s)});
-               for i=1:size(condNames,1)
-                   G = gifti(fullfile(subjDir,sprintf('%s.%s.con_%s-rest.32k.func.gii',subj_name{sn(s)},hemI{h},condNames{i})));
-                   allTasks(:,i) = G.cdata(:,1);
-               end
-               colName = {sprintf('conditionMean_%s',subj_name{sn(s)})};
-               G_mean = surf_makeFuncGifti(mean(allTasks,2),'anatomicalStruct',hemName{h},'columnNames',colName);
-               infilenames{s} = fullfile(subjDir,sprintf('%s.%s.con_meanConditions-rest.func.gii',subj_name{sn(s)},hemI{h}));
-               save(G_mean,infilenames{s});
-           end
-           outfilenames    = fullfile(groupSurfDir,sprintf('%s.con_meanConditions-rest.func.gii',hemI{h}));
-           summaryname     = fullfile(groupSurfDir,sprintf('%s.group.con_meanConditions-rest.func.gii',hemI{h}));    
-           surf_groupGiftis(infilenames,'outfilenames',{outfilenames},'groupsummary',summaryname,'replaceNaNs',1);  
-           fprintf('...done all.\n');
-       end
     case 'SUIT:mdtb:suit_parcel2native'
         % maps each atlas of the suit into individual space
         % Example: sc1_sc2_mdtb('SUIT:mdtb:suit_parcel2native', 'sn', [3])
