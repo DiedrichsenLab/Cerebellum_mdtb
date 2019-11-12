@@ -1412,7 +1412,7 @@ switch what
         atlas_res      = 32;
         which          = 'task';
         
-        vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'atlas_res'});
+        vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'atlas_res', 'which'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
