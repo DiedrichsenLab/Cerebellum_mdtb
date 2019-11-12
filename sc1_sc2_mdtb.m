@@ -1417,7 +1417,7 @@ switch what
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
-        Cc       = getrow(C, C.StudyNum == experiment);
+        Cc       = getrow(C, C.StudyNum == experiment_num);
         switch which
             case 'task' % task for glm8
                 conNames = unique(Cc.taskNames);
