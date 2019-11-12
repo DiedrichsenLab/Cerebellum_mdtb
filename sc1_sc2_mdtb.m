@@ -25,6 +25,7 @@ baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 behavDir     ='/data';                  %% behavioral data directory.
 suitDir      = 'suit';                  %% directory where the anatomicals used in creating flatmaps are stored.
 regDir       = 'RegionOfInterest';      %% The ROI directory 
+encodeDir    = 'encoding';
 
 suitToolDir  = '/Users/ladan/Documents/MATLAB/suit';
 
@@ -1008,6 +1009,82 @@ switch what
             end % i (contrasts)
         end % sn        
         
+    case 'SURF:mdtb:UW_beta'
+        % gets the betas on the surface and univariately prewhiten them
+        % Example: sc1_sc2_mdtb('SURF:mdtb:UW_beta', 'sn', 2, 'experiment_num', 1, 'glm', 8)
+        sn=returnSubjs;
+        experiment_num = 1;
+        glm=8;
+        atlas_res = 32;
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'atlas_res'});
+        
+%         subjs=length(sn);
+        numRuns=numel(run);
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting glm and surfaceWB directory
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        wbDir  = 'surfaceWB';
+        glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
+        dircheck(glmSurfDir);
+        encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));
+                
+%         restCond=[29;32]; % SC1: 29th, SC2: 32nd - REST
+        
+        
+        for s = sn
+            Y = [];
+            fprintf('******************** start mapping betas to surface for %s ********************\n', subj_name{s});
+            subjSurfDir = fullfile(baseDir, 'sc1', wbDir, 'data', subj_name{s});
+            dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
+            
+            glmSubjDir = fullfile(glmDir, subj_name{s});
+            encodeSubjDir = fullfile(encodingDir, subj_name{s});
+            
+            T  = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            for h = 1:2 % two hemispheres
+                white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                C1      = gifti(white);
+                C2      = gifti(pial);
+                
+                % map ResMS to the surface
+                fprintf('******************** mapping ResMS to surface for %s hemi %s ********************\n', hemI{h}, subj_name{s});
+                ResMsImage{1}    = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
+                ResMs_colName{1} = 'ResMS.nii';
+                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}));
+                
+                G_ResMs = surf_vol2surf(C1.vertices,C2.vertices,ResMsImage,'column_names', ResMs_colName, ...
+                        'anatomicalStruct',hemName{h});
+                save(G_ResMs, ResMs_outfile);
+                
+                % start mapping betas to surface
+                filenames = dir(fullfile(glmSubjDir,'beta*'));
+                outfile = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.glm%d_beta_cortex_%s.func.gii',subj_name{s}, hemI{h},glm));
+                
+                for t = 1:length(filenames)
+                    fileList{t} = {filenames(t).name};
+                    column_name{t} = {filenames(t).name};
+                end % t
+                for f=1:length(fileList)
+                    images(f)=spm_vol(fullfile(glmSubjDir,fileList{f}));
+                end % f
+                G               = surf_vol2surf(C1.vertices,C2.vertices,images,'column_names', column_name, ...
+                        'anatomicalStruct',hemName{h});
+                save(G, outfile);
+                
+                % write out new structure ('Y_info')
+                Y.data=bsxfun(@rdivide,G.cdata',sqrt(G_ResMs.cdata')); % UW betas
+                Y.data(end-numRuns+1:end,:)=0; % make intercept (last 16 regressors) equal zero
+%                 Y.nonZeroInd=B.index';
+                
+                outName=fullfile(encodeSubjDir,sprintf('Y_info_glm%d_cortex_%s.mat',glm,hemI{h}));
+                save(outName,'Y','-v7.3');
+                fprintf('cortical vertices: (Y data) computed for %s \n',subj_name{s});
+%                 clear B R Y
+            end % hemi
+        end % sn
     case 'SURF:mdtb:map_con'
         % projects individual contrast map volume files for the conditions
         % to the workbench surface.
@@ -1446,9 +1523,7 @@ switch what
             outfilename = sprintf('s%s.group.wcon_%s-%s.%dk.func.gii', hemI{h}, which, con_vs, atlas_res);
             surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaN);
             fprintf('a single gifti file for contrasts for %s hemi successfully created for\n', hemI{h})
-        end % h (hemi)
-
-        
+        end % h (hemi)      
     case 'SURF:groupmap_meancond'
         % computes the mean across all conditions (relative to rest)
         glm = 4;
@@ -1518,7 +1593,7 @@ switch what
         
         sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type           = 'con';                  %% enter the image you want to reslice to suit space
+        type           = 'beta';                  %% enter the image you want to reslice to suit space
         glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         con_vs         = 'average_4';            %% option for the contrasts and spmT
@@ -1620,6 +1695,100 @@ switch what
 %         suit_plotflatmap(D, 'cmap', colormap(jet(256)), 'cscale', [-3, 3]);
 %         caxis([-3, 3]);
 %         colorbar;
+    case 'SUIT:mdtb:UW_beta'
+        % univariate prewhitening of beta values in the cerebellum
+        % Example: sc1_sc2_mdtb('SUIT:mdtb:UW_beta', 'sn', 2, 'experiment_num', 1, 'glm', 8, 'data', 'grey')
+        sn=returnSubjs;
+        experiment_num = 1;
+        glm=8;
+        data='grey'; % 'grey_white' or 'grey' or 'grey_nan'
+        
+%         subjs=length(sn);
+        numRuns=numel(run);
+%         restCond=[29;32]; % SC1: 29th, SC2: 32nd - REST
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'data'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        
+        % setting directories
+        glmDirSuit = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
+        glmDir     = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        
+        for s= sn
+            Y = []; % new structure with prewhitened betas
+            
+            VresMS = spm_vol(fullfile(glmDirSuit, subj_name{s},'wdResMS.nii'));
+            ResMS  = spm_read_vols(VresMS);
+            ResMS(ResMS==0) = NaN;
+            
+            % Load over all grey matter mask
+            if strcmp(data,'grey'),
+                V=spm_vol(fullfile(baseDir, experiment, 'suit','anatomicals',subj_name{s},'wdc1anatomical.nii')); % call from sc1
+            else
+                V=spm_vol(fullfile(baseDir, experiment, 'suit','anatomicals','cerebellarGreySUIT.nii')); % call from sc1
+            end
+            
+            X = spm_read_vols(V);
+            % Check if V.mat is the the same as wdResMS!!!
+            grey_threshold = 0.1; % grey matter threshold
+            indx = find(X>grey_threshold);
+            [i,j,k] = ind2sub(size(X),indx');
+            
+            encodeSubjDir = fullfile(baseDir, experiment,encodeDir,sprintf('glm%d',glm),subj_name{s}); dircheck(encodeSubjDir);
+            glmSubjDir    = fullfile(glmDir, subj_name{s});
+            T             = load(fullfile(glmSubjDir,'SPM_info.mat'));
+            
+%             % reorganise
+%             r=ones(numRuns,1)*restCond(study); % rest is 29th (SC1) and 32nd (SC2) task cond (not zero)
+%             T=struct('run',[1:numRuns]','sess',kron([1:2]',ones(numRuns/2,1)),'cond',r,'SN',ones(numRuns,1)*sn(s));
+%             T.TN=repmat({'rest'},numRuns,1);
+%             Y=addstruct(Y,T);
+%             Y=rmfield(Y,'task');
+            
+            switch data,
+                case 'grey'
+                    % univariately pre-whiten cerebellar voxels
+                    nam={};
+                    for b=1:length(T.SN),
+                        nam{1}=fullfile(glmDirSuit,subj_name{s},sprintf('wdbeta_%2.4d.nii',b));
+                        V=spm_vol(nam{1});
+                        B1(b,:)=spm_sample_vol(V,i,j,k,0);
+                        B1(b,:)=bsxfun(@rdivide,B1(b,:),sqrt(ResMS(indx)')); % univariate noise normalisation
+                    end
+                    for b=1:length(T.SN),
+                        Yy=zeros(1,V.dim(1)*V.dim(2)*V.dim(3));
+                        Yy(1,indx)=B1(b,:);
+                        Yy=reshape(Yy,[V.dim(1),V.dim(2),V.dim(3)]);
+                        Yy(Yy==0)=NaN;
+                        idx=find(~isnan(Yy));
+                        Yy=Yy(:);
+                        Bb(b,:)=Yy(idx,:);
+                    end
+                    clear B1 indx
+                    B1=Bb;
+                    indx=idx;
+                case 'grey_nan'
+                    load(fullfile(glmSuitDir,subj_name{sn(s)},'wdBetas_UW.mat'));
+                    for b=1:size(D,1),
+                        dat=D(b,:,:,:);
+                        Vi.dat=reshape(dat,[V.dim(1),V.dim(2),V.dim(3)]);
+                        B1(b,:)=spm_sample_vol(Vi,i,j,k,0);
+                    end
+            end
+            
+            % write out new structure ('Y_info')
+            Y.data=B1;
+            Y.data(end-numRuns+1:end,:)=0; % make intercept (last 16 regressors) equal zero
+            Y.identity=indicatorMatrix('identity_p',T.task);
+            Y.nonZeroInd=repmat(indx',size(B1,1),1);
+            
+            outName= fullfile(encodeSubjDir,sprintf('Y_info_glm%d_%s.mat',glm,data));
+            save(outName,'Y','-v7.3');
+            fprintf('cerebellar voxels (%s) computed for %s \n',data,subj_name{s});
+            clear B1 idx Bb indx
+        end
     case 'SUIT:mdtb:groupmap_con'
         % creates group average for the condition contrast maps.
         % you need to reslice all the images to suit space before running
