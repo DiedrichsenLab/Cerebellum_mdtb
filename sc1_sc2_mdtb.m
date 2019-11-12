@@ -1434,11 +1434,11 @@ switch what
         %%% creating a single file for each hemisphere
         for h = 1:2
             for cc = 1:length(conNames)
-                infilenames{cc}   = fullfile(glmSurfGroupDir,sprintf('s%s.group.wcon_%s-%s.func.gii', hemI{h}, conNames{cc}, con_vs));
+                infilenames{cc}   = fullfile(glmSurfGroupDir,sprintf('s%s.group.wcon_%s-%s.%dk.func.gii', hemI{h}, conNames{cc}, con_vs, atlas_res));
                 columnName{cc} = sprintf('%s-%s', conNames{cc}, con_vs);
             end % cc (condition)
             cd(fullfile(glmSurfGroupDir));
-            outfilename = sprintf('s%s.group.wcon_%s-%s.func.gii', hemI{h}, which, con_vs);
+            outfilename = sprintf('s%s.group.wcon_%s-%s.%dk.func.gii', hemI{h}, which, con_vs, atlas_res);
             surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaN);
             fprintf('a single gifti file for contrasts for %s hemi successfully created for\n', hemI{h})
         end % h (hemi)
