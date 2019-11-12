@@ -1417,13 +1417,18 @@ switch what
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
-        Cc       = getrow(C, C.StudyNum == experiment_num);
+        Cc       = getrow(C, C.StudyNum == experiment);
         switch which
             case 'task' % task for glm8
                 conNames = unique(Cc.taskNames);
             case 'cond' % condition for glm7
                 conNames = unique(Cc.condNames);
         end %% do you want the group maps for tasks or conditions
+                
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
         
         experiment = sprintf('sc%d', experiment_num);
         
