@@ -1177,7 +1177,6 @@ switch what
                 save(G_single, outfile_single);
             end % hemi
         end % sn 
-        
     case 'SURF:mdtb:map_con_task'
         % projects individual contrast map volume files for tasks to
         % WorkBench surface
@@ -1403,6 +1402,47 @@ switch what
                 fprintf('******************** group average contrast for %s vs %s is created! ********************\n\n', taskNames{cc}, con_vs);
             end % contrasts(ic)
         end % hemi(h)
+    case 'SURF:mdtb:groupmap_con_groupGiftis'
+        % takes in all the giftis for contrasts and make a single gifti 
+        % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_groupGiftis', 'experiment_num', 1, 'glm', 8, 'which', 'task', 'con_vs', 'average_4')
+        
+        experiment_num = 1;
+        glm            = 8;
+        con_vs         = 'average_4';
+        atlas_res      = 32;
+        which          = 'task';
+        
+        vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'atlas_res'});
+        
+        % load in task information
+        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        Cc       = getrow(C, C.StudyNum == experiment_num);
+        switch which
+            case 'task' % task for glm8
+                conNames = unique(Cc.taskNames);
+            case 'cond' % condition for glm7
+                conNames = unique(Cc.condNames);
+        end %% do you want the group maps for tasks or conditions
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting directories
+        wbDir           = 'surfaceWB';
+        glmSurfGroupDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), sprintf('group%d', atlas_res));
+        
+        %%% creating a single file for each hemisphere
+        for h = 1:2
+            for cc = 1:length(conNames)
+                infilenames{cc}   = fullfile(glmSurfGroupDir,sprintf('s%s.group.wcon_%s-%s.func.gii', hemI{h}, conNames{cc}, con_vs));
+                columnName{cc} = sprintf('%s-%s', conNames{cc}, con_vs);
+            end % cc (condition)
+            cd(fullfile(glmSurfGroupDir));
+            outfilename = sprintf('s%s.group.wcon_%s-%s.func.gii', hemI{h}, which, con_vs);
+            surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaNs);
+            fprintf('a single gifti file for contrasts for %s hemi successfully created for\n', hemI{h})
+        end % h (hemi)
+
+        
     case 'SURF:groupmap_meancond'
         % computes the mean across all conditions (relative to rest)
         glm = 4;
