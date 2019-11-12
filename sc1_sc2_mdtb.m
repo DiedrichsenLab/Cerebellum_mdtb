@@ -1411,8 +1411,9 @@ switch what
         con_vs         = 'average_4';
         atlas_res      = 32;
         which          = 'task';
-        
-        vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'atlas_res', 'which'});
+        replaceNaN     = 1;           %% replacing NaNs
+
+        vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'atlas_res', 'which', 'replaceNaN'});
         
         % load in task information
         C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
@@ -1428,7 +1429,7 @@ switch what
         
         % setting directories
         wbDir           = 'surfaceWB';
-        glmSurfGroupDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), sprintf('group%d', atlas_res));
+        glmSurfGroupDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm), sprintf('group%dk', atlas_res));
         
         %%% creating a single file for each hemisphere
         for h = 1:2
@@ -1438,7 +1439,7 @@ switch what
             end % cc (condition)
             cd(fullfile(glmSurfGroupDir));
             outfilename = sprintf('s%s.group.wcon_%s-%s.func.gii', hemI{h}, which, con_vs);
-            surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaNs);
+            surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaN);
             fprintf('a single gifti file for contrasts for %s hemi successfully created for\n', hemI{h})
         end % h (hemi)
 
