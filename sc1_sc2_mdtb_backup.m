@@ -1778,6 +1778,57 @@ switch what
                 end % ic (condition/contrast)   
             end % hemi
         end % sn    
+    case 'SURF:mdtb:map_con2'
+        % projects individual contrast map volume files for the conditions
+        % to the workbench surface.
+        % It also projects the ResMS image to the surface and also can
+        % univariately whiten the contrast maps using the ResMs.
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con2', 'sn', 2, 'glm', 8, 'experiment_num', 1)
+    
+        sn             = returnSubjs; %% list of subjects
+        atlas_res      = 32;          %% set it to 32 or 164
+        experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
+        glm            = 7;           %% glm number
+        con_vs         = 'average_4'; %% set it to 'rest' or 'average'
+        
+        vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', 'con_vs'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting glm and surfaceWB directory
+        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
+        dircheck(glmSurfDir);
+        
+        for s = sn
+            fprintf('******************** start mapping contrasts to surface for %s ********************\n', subj_name{s});
+            subjSurfDir = fullfile(baseDir, 'sc1', wbDir, 'data', subj_name{s});
+            dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
+            
+            T        = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            conNames = unique(T.TN, 'stable');
+            for h = 1:2 % two hemispheres
+                white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
+                C1      = gifti(white);
+                C2      = gifti(pial);
+                
+                % preallocating!
+                filenames   = cell(1, length(conNames) + 1); % a cell is added for the ResMS
+                column_name = cell(1, length(conNames) + 1); % a cell is added for the ResMS
+                for ic = 1:length(conNames)
+                    filenames{ic}   = fullfile(glmDir, subj_name{s}, sprintf('con_%s-%s.nii', conNames{ic}, con_vs));
+                    column_name{ic} = conNames{ic};
+                end % ic (condition/contrast)  
+                filenames{ic + 1}   = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
+                column_name{ic + 1} = 'ResMS';
+                
+                outfile = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.con-%s.%dk.func.gii', subj_name{s}, hemI{h}, con_vs, atlas_res)); 
+                
+                G = surf_vol2surf(C1.vertices, C2.vertices, filenames, 'column_names', column_name, 'anatomicalStruct', hemName{h});
+                save(G, outfile);
+            end % hemi
+        end % sn  
     case 'SURF:mdtb:map_con_new'
         % projects individual contrast map volume files for the conditions
         % to the workbench surface.
