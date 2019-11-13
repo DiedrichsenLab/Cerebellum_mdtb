@@ -1025,7 +1025,9 @@ switch what
         % setting glm and surfaceWB directory
         glmDir      = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         glmSurfDir  = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm)); dircheck(glmSurfDir);
-        encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));        
+        encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));   
+        
+        numRuns = length(runLst);
         
         for s = sn
             Y = [];
@@ -1736,7 +1738,9 @@ switch what
         glmDirSuit = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
         glmDir     = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
-        for s= sn
+        numRuns = length(runLst);
+        
+        for s = sn
             Y = []; % new structure with prewhitened betas
             
             VresMS = spm_vol(fullfile(glmDirSuit, subj_name{s},'wdResMS.nii'));
