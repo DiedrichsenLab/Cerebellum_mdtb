@@ -1843,11 +1843,11 @@ switch what
         % creates group map for task contrasts
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_task', 'sn', [3]);
         
-        sn         = returnSubjs;                   %% list of subjects
+        sn             = returnSubjs;                   %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type       = 'con';                  %% enter the image you want to reslice to suit space
-        glm        = 7;                      %% glm number
-        con_vs     = 'rest';                 %% is the contrast calculated vs 'rest' or 'average'
+        type           = 'con';                  %% enter the image you want to reslice to suit space
+        glm            = 7;                      %% glm number
+        con_vs         = 'rest';                 %% is the contrast calculated vs 'rest' or 'average'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'mask'});
         
@@ -1902,6 +1902,43 @@ switch what
             fprintf('******************** %s group average for %s vs %s is created! ********************\n\n', type, taskNames{cc}, con_vs);
         end % contrasts (cc)
         save(fullfile(glmSuitGroupDir, sprintf('indMaps_%s-vs-%s.mat', type, con_vs)), 'maps', '-v7.3');
+    
+    case 'Summ:mdtb:beta_dataframe'
+        % creates a dataframe that has all the task information and the
+        % univariately prewhitened beta values in cortex and the
+        % cerebellum.
+        % Example: sc1_sc2_mdtb('Summ:mdtb:beta_dataframe')
+        
+        sn             = returnSubjs;
+        experiment_num = 1;
+        glm            = 8;
+        data_cereb     = 'grey';
+        centre         = 'average'; % how do you want to center the betas ('average', 'rest')
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'centre'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting directories
+        encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));
+
+        hemis      = {'L', 'R'}; % looping through two hemispheres
+        structures = {'cortex', 'cerebellum'}; % looping through two structures
+        
+        df = []; % dataframe that has all the variables for doing the scatter plots
+        for s = sn 
+            for sc = 1:length(structures)
+                if strcmp(structures{sc}, 'cortex')
+                    for ih = 1:length(hemis)
+                        load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_cortex_%s.mat', glm, hemis{ih})));                        
+                    end % ih (hemispheres)
+                else % the structure is the cerebellum and you don't need to loop through hemispheres
+                    load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_%s.mat', glm, data_cereb)));
+                    
+                end % if the structure is cortex then you need to loop through hemispheres
+                
+            end % sc (structures)
+        end % s (sn)
 
     case 'Visualize:mdtb:suit'
         % takes in a vector (or map) for a subject and transfer it to suit space and plot it
