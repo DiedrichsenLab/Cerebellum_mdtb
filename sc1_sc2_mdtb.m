@@ -1082,7 +1082,7 @@ switch what
                 outName = fullfile(encodeSubjDir,sprintf('Y_info_glm%d_cortex_%s.mat',glm,hemI{h}));
                 save(outName,'Y','-v7.3');
                 fprintf('cortical vertices: (Y data) computed for %s \n',subj_name{s});
-%                 clear B R Y
+                clear B R Y
             end % hemi
         end % sn
     case 'SURF:mdtb:map_beta'
@@ -1907,7 +1907,7 @@ switch what
         % creates a dataframe that has all the task information and the
         % univariately prewhitened beta values in cortex and the
         % cerebellum.
-        % Example: sc1_sc2_mdtb('Summ:mdtb:beta_dataframe')
+        % Example: sc1_sc2_mdtb('Summ:mdtb:beta_dataframe', 'sn', 2)
         
         sn             = returnSubjs;
         experiment_num = 1;
@@ -1922,23 +1922,75 @@ switch what
         % setting directories
         encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));
 
-        hemis      = {'L', 'R'}; % looping through two hemispheres
-        structures = {'cortex', 'cerebellum'}; % looping through two structures
+        hemis_num  = [1, 2];     % looping through two hemispheres (L = 1, R = 2, also cereb is set to 0)
+        hemis      = {'L', 'R'};
+        structures_num = [1, 2]; % looping through two structures (cortex = 1, cereb = 2)
         
         df = []; % dataframe that has all the variables for doing the scatter plots
         for s = sn 
-            for sc = 1:length(structures)
-                if strcmp(structures{sc}, 'cortex')
+            fprintf('getting data for %s\n', subj_name{s})
+            temp.sn = s;
+            for sc = 1:length(structures_num)
+                temp.structure = structures_num(sc);
+                if structures_num(sc) == 1 % cortex
                     for ih = 1:length(hemis)
-                        load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_cortex_%s.mat', glm, hemis{ih})));                        
+                        temp.hemi = hemis_num(ih);
+                        load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_cortex_%s.mat', glm, hemis{ih})));
+                        % remove unnecessary fields
+                        y_rf = rmfield(Y, {'time', 'taskName_before', 'taskName_after', 'sess', 'TN', 'SN'});
+                        
+                        % get the baseline for betas
+                        switch centre % centre against what?
+                            case 'average' % centre against the average of all the tasks except for instructions
+                                % remove the instructions
+                                y_rf_ri = getrow(y_rf, y_rf.task ~= 0);
+                                
+                                % group the data with tapply
+                                t_run = tapply(y_rf_ri, {'task', 'inst', 'instOrder'}, {'data'});
+                                baseline = mean(t_run.data);
+                            case 'rest'    % centre against the rest (for glm8 it is explicitly moedled)
+                        end % switch centre
+                        t_runa  = tapply(y_rf, {'task', 'inst', 'instOrder'}, {'data'});
+                        uwBeta  = t_runa.data;
+                        centred = bsxfun(@minus, uwBeta, baseline);
+                        
+                        % get the average beta value for structures{sc}
+                        avgBeta = mean(centred, 2);
+                        temp.mBeta = avgBeta';
+%                         clear Y y_rf y_rf_ri t_run t_runa uwBeta centred avgBeta
+                        df = addstruct(df, temp);
                     end % ih (hemispheres)
                 else % the structure is the cerebellum and you don't need to loop through hemispheres
+                    temp.hemi = 0;
                     load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_%s.mat', glm, data_cereb)));
+                    % remove unnecessary fields
+                    y_rf = rmfield(Y, {'time', 'taskName_before', 'taskName_after', 'sess', 'TN', 'SN', ...
+                        'identity', 'nonZeroInd'});
                     
+                    % get the baseline for betas
+                    switch centre % centre against what?
+                        case 'average' % centre against the average of all the tasks except for instructions
+                            % remove the instructions
+                            y_rf_ri = getrow(y_rf, y_rf.task ~= 0);
+                            
+                            % group the data with tapply
+                            t_run = tapply(y_rf_ri, {'task', 'inst', 'instOrder'}, {'data'});
+                            baseline = mean(t_run.data);
+                        case 'rest'    % centre against the rest (for glm8 it is explicitly moedled)
+                    end % switch centre
+                    t_runa  = tapply(y_rf, {'task', 'inst', 'instOrder'}, {'data'});
+                    uwBeta  = t_runa.data;
+                    centred = bsxfun(@minus, uwBeta, baseline);
+                    
+                    % get the average beta value for structures{sc}
+                    avgBeta = mean(centred, 2);
+                    temp.mBeta = avgBeta';
+                    %                         clear Y y_rf y_rf_ri t_run t_runa uwBeta centred avgBeta
+                    df = addstruct(df, temp);
                 end % if the structure is cortex then you need to loop through hemispheres
-                
             end % sc (structures)
         end % s (sn)
+        keyboard
 
     case 'Visualize:mdtb:suit'
         % takes in a vector (or map) for a subject and transfer it to suit space and plot it
