@@ -2062,7 +2062,8 @@ switch what
         
         keyboard;
         
-    case 'Houskeeping:renameSPM'     % rename SPM directories
+    case 'Houskeeping:renameSPM'     
+        % rename SPM directories
         % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
         sn             = returnSubjs;
@@ -2261,9 +2262,9 @@ switch what
                         
                         [success(s, icf), Message{s, icf}, ~] = copyfile(sourceFile, destination);
                         if success(s, icf) == 1
-                            fprintf('%s coppied to the server\n', sourceFile);
+                            fprintf('%s coppied to the server\n', cop_files(icf).name);
                         else
-                            fprintf('copying %s to the server failed\n', sourceFile)
+                            fprintf('copying %s to the server failed\n', cop_files(icf).name)
                         end
                     end % icf (files to be copied)
                     
