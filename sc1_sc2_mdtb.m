@@ -2089,6 +2089,186 @@ switch what
             save(fullfile(newGLMDir,'SPM.mat'),'SPM','-v7.3');
             varargout{1} = SPM;
         end % s (sn)
+    case 'Houskeeping:move_files'
+        % moving files to the server
+        % Example: sc1_sc2_mdtb('Houskeeping:move_files')
+        
+        sn             = returnSubjs;
+        experiment_num = 1;
+        glm            = 8;
+        con_vs         = 'average_4';
+        nTrans         = 272;
+        copywhich      = 'transitions';
+        serverDir      = '/Volumes/MotorControl/data/super_cerebellum_new';
+        
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich', 'serverDir'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        switch copywhich
+            case 'physio'        % copying physio files for the new glm
+                
+                sn             = [24, 25];
+                experiment     = 'sc1';
+                dicomDirServer = fullfile(serverDir, experiment, 'imaging_data_dicom');
+                
+                for s = sn
+                    for sess = 1:2
+                        source      = fullfile(dicomDirServer, sprintf('%s_%d', subj_name{s}, sess));
+                        destination = fullfile(baseDir, experiment, 'imaging_data_dicom', sprintf('%s_%d', subj_name{s}, sess));
+                        dircheck(fullfile(destination, 'physio'));
+                        
+                        sourceFile = fullfile(source, 'physio');
+                        
+                        [success(s, sess), Message{s, sess}, ~] = copyfile(sourceFile, fullfile(destination, 'physio'));
+                        
+                        if success(s, sess) == 1
+                            fprintf('physio data for %s sess %d was copied successfully\n', subj_name{s}, sess);
+                        else
+                            fprintf('physio data copying failed for %s sess %d\n', subj_name{s}, sess);
+                        end
+                    end % sess (session)
+                end % s (sn)
+            case 'transitions'   % copying files for transitions
+                
+                experiment = sprintf('sc%d', experiment);
+                % copy files from group32k to server
+                for tt = 1:nTrans
+                    for h = 1:2
+                        source = fullfile(baseDir, experiment, 'surfaceWB', 'data', 'group32k');
+                        destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), 'group32k');
+                        dircheck(destination);
+                        
+                        %                         sourceFile = fullfile(source, sprintf('s%s.group.con_transition_%d-%s.func.gii', hemI{h}, tt, con_vs));
+                        sourceFile = fullfile(source, sprintf('s%s.con_transition_%d-%s.func.gii', hemI{h}, tt, con_vs));
+                        
+                        [success(tt, h), Message{tt, h}, ~] = copyfile(sourceFile, destination);
+                        if success(tt, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                    end % h
+                end % tt
+            case 'taskCon'       % copying files for task contrasts
+                
+                % load in task information
+                C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+                Cc = getrow(C, C.StudyNum == experiment);
+                
+                experiment = sprintf('sc%d', experiment);
+                
+                for cc = 1:length(Cc.taskNames)
+                    source = fullfile(baseDir, experiment, 'surfaceWB', 'data', 'group32k');
+                    destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), 'group32k');
+                    dircheck(destination);
+                    for h = 1:2
+                        sourceFile = fullfile(source, sprintf('s%s.group.con_%s-%s_taskCon.func.gii', hemI{h}, Cc.taskNames{cc}, con_vs));
+                        [success(cc, h), Message{cc, h}, ~] = copyfile(sourceFile, destination);
+                        
+                        if success(cc, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                        
+                        sourceFile = fullfile(source, sprintf('s%s.con_%s-%s_taskCon.func.gii', hemI{h}, Cc.taskNames{cc}, con_vs));
+                        [success(cc, h), Message{cc, h}, ~] = copyfile(sourceFile, destination);
+                        
+                        if success(cc, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                    end % h
+                end % cc
+                
+                keyboard
+            case 'noise_ceiling' % copying files for noise ceilings
+                
+                experiment = sprintf('sc%d', experiment);
+                % copy files from group32k to server
+                for h = 1:2
+                    source = fullfile(baseDir, experiment, 'surfaceWB', 'data', 'group32k');
+                    destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), 'group32k');
+                    dircheck(destination);
+                    
+                    %                         sourceFile = fullfile(source, sprintf('s%s.group.con_transition_%d-%s.func.gii', hemI{h}, tt, con_vs));
+                    sourceFile = fullfile(source, sprintf('s%s.transition_id-%s_noiseCeiling_high.func.gii', hemI{h}, con_vs));
+                    
+                    [success(tt, h), Message{tt, h}, ~] = copyfile(sourceFile, destination);
+                    if success(tt, h) == 1
+                        fprintf('%s coppied to the server\n', sourceFile);
+                    else
+                        fprintf('copying %s to the server failed\n', sourceFile)
+                    end
+                    
+                    sourceFile = fullfile(source, sprintf('s%s.transition_id-%s_noiseCeiling_low.func.gii', hemI{h}, con_vs));
+                    
+                    [success(tt, h), Message{tt, h}, ~] = copyfile(sourceFile, destination);
+                    if success(tt, h) == 1
+                        fprintf('%s coppied to the server\n', sourceFile);
+                    else
+                        fprintf('copying %s to the server failed\n', sourceFile)
+                    end
+                end % h
+            case 'GLM'
+                experiment  = sprintf('sc%d', experiment);
+                destination = fullfile(serverDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                
+                % setting directories
+                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                dircheck(glmDir);
+                
+                for s = sn
+                    sourceFolder = fullfile(glmDir, subj_name{s});
+                    destFolder   = fullfile(destination, subj_name{s});
+                    dircheck(destFolder);
+                    cd(sourceFolder);
+                    system(sprintf('find -name -exec cp  -R %s %s;', sourceFolder, destFolder));
+                    %                     [success(s), message{s}, ~] = copyfile(sourceFolder, destFolder, 'f');
+                    %                     system('find -name "*.m" -exec cp {} target \;')
+                    
+                    if success(s) == 1
+                        fprintf('%s coppied to the server\n', sourceFolder);
+                    else
+                        fprintf('copying %s to the server failed\n', sourceFolder);
+                        fprintf('%s\n', message{s});
+                    end
+                end % sn
+            case 'region_cortex'
+                experiment = sprintf('sc%d', experiment);
+                sourceDir  = fullfile(serverDir, experiment, 'RegionOfInterest', 'data');
+                destDir    = fullfile(baseDir, experiment, 'RegionOfInterest', 'data');
+                
+                for s = sn
+                    sourceFile  = fullfile(sourceDir, subj_name{s}, 'regions_cortex.mat');
+                    destDirSubj = fullfile(destDir, subj_name{s});
+                    [success(s), Message{s}, ~] = copyfile(sourceFile, destDirSubj);
+                end % sn
+            case 'contrast_spmT' % copying contrast and spmT files
+                glmDir_local  = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                glmDir_server = fullfile(serverDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                for s = sn
+                    subj_local  = fullfile(glmDir_local, subj_name{s});
+                    subj_server = fullfile(glmDir_server, subj_name{s});
+                    
+                    cop_files = dir(fullfile(subj_local, sprintf('*%s.nii', con_vs)));
+                    
+                    for icf = 1:length(cop_files)
+                        
+                        sourceFile = fullfile(subj_local, cop_files(icf).name);
+                        destination = subj_server;
+                        
+                        [success(s, icf), Message{s, icf}, ~] = copyfile(sourceFile, destination);
+                        if success(s, icf) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                    end % icf (files to be copied)
+                    
+                end % s (sn)
+        end
 end
 end
 

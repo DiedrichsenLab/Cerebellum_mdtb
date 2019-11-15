@@ -5649,15 +5649,16 @@ switch what
         % moving files to the server
         % Example: sc1_sc2_mdtb_backup('MDTB:move_files')
         
-        sn             = returnSubjs; 
+        sn         = returnSubjs; 
+        ppmethod   = '';
         experiment_num = 1;
-        glm            = 8;
-        con_vs         = 'rest_task';
-        nTrans         = 272;
-        copywhich      = 'transitions';
-        serverDir      = '/Volumes/MotorControl/data/super_cerebellum_new';
+        glm        = 8;
+        con_vs     = 'rest_task';
+        nTrans     = 272;
+        copywhich  = 'transitions';
+        serverDir  = '/Volumes/MotorControl/data/super_cerebellum_new';
 
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich', 'serverDir'});
+        vararginoptions(varargin, {'sn', 'ppmethod', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich'});
           
         experiment = sprintf('sc%d', experiment_num);
         switch copywhich
@@ -5771,8 +5772,12 @@ switch what
                 experiment  = sprintf('sc%d', experiment);
                 destination = fullfile(serverDir, experiment, sprintf('GLM_firstlevel_%d', glm));
 
-                % setting directories
-                glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                switch ppmethod
+                    case ''
+                        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+                    case 'stc'
+                        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d_stc', glm));
+                end
                 dircheck(glmDir);
                 
                 for s = sn
@@ -5815,8 +5820,8 @@ switch what
                         sourceFile = fullfile(subj_local, cop_files(icf).name);
                         destination = subj_server;
                         
-                        [success(s, icf), Message{s, icf}, ~] = copyfile(sourceFile, destination);
-                        if success(s, icf) == 1
+                        [success(tt, h), Message{tt, h}, ~] = copyfile(sourceFile, destination);
+                        if success(tt, h) == 1
                             fprintf('%s coppied to the server\n', sourceFile);
                         else
                             fprintf('copying %s to the server failed\n', sourceFile)
