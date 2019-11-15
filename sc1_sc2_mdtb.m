@@ -436,7 +436,7 @@ switch what
         announceTime = 5;
                 
         % load in task information
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM7.txt'));
         Cc = getrow(C, C.StudyNum == experiment_num);
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
@@ -555,12 +555,17 @@ switch what
                                     tt = (R.setSize==Cc.trialType(ic0));
                                 elseif strcmp(Cc.taskNames{ic0},'nBack') || strcmp(Cc.taskNames{ic0},'nBackPic')
                                     tt = (R.respMade==Cc.trialType(ic0));
-                                elseif strcmp(Cc.taskNames{ic0},'motorImagery') || strcmp(Cc.taskNames{ic0},'ToM'),
+                                elseif strcmp(Cc.taskNames{ic0},'motorImagery') || strcmp(Cc.taskNames{ic0},'ToM')
                                     tt = 1;
                                 end
                                 onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
                             case 'sc2'
-                                onset=[P.realStartTime(ST)+R.startTimeReal(R.condition==Cc.trialType(ic0))+announceTime-(J.timing.RT*numDummys)];
+                                if strcmp(Cc.taskNames{ic0},'CPRO')
+                                    tt = 1;
+                                elseif strcmp(Cc.taskNames{ic0},'ToM2')
+                                    tt = 1;
+                                end
+                                onset=[P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
                         end % switch experiment
 
                         % loop through trial-types (ex. congruent or incongruent)
@@ -576,8 +581,8 @@ switch what
                         S.inst  = 0; % instruction flag
                         
                         S.instime         = 0;
-                        S.taskName_after  = 'none';
-                        S.taskName_before = 'none';
+                        S.taskName_after  = {'none'};
+                        S.taskName_before = {'none'};
                         
                         S.task  = Cc.taskNum(ic0);
                         S.cond  = Cc.condNum(ic0);
@@ -605,7 +610,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-%             spm_rwls_run_fmri_spec(J);
+            spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -1305,11 +1310,11 @@ switch what
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
         glm            = 4;           %% glm number
         replaceNaN     = 1;           %% replacing NaNs
-        con_vs         = 'rest'; %% contrast was calculated against 'rest' or 'average'        
+        con_vs         = 'average_4'; %% contrast was calculated against 'rest' or 'average'        
         smooth         = 1;           %% add smoothing
         kernel         = 1;           %% for smoothing
         which          = 'task';      %% 'task' for glm8 and 'cond' for glm7
-        normmode       = 'NW';        %% can be set to either 'UW' or 'NW';
+        normmode       = 'UW';        %% can be set to either 'UW' or 'NW';
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', ...
             'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which', 'normmode'});
@@ -1573,7 +1578,7 @@ switch what
         
         sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type           = 'beta';                  %% enter the image you want to reslice to suit space
+        type           = 'con';                  %% enter the image you want to reslice to suit space
         glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         con_vs         = 'average_4';            %% option for the contrasts and spmT
@@ -1975,7 +1980,7 @@ switch what
                             
                             % group the data with tapply
                             t_run = tapply(y_rf_ri, {'task', 'inst', 'instOrder'}, {'data'});
-                            baseline = mean(t_run.data);
+                            baseline = nanmean(t_run.data);
                         case 'rest'    % centre against the rest (for glm8 it is explicitly moedled)
                     end % switch centre
                     t_runa  = tapply(y_rf, {'task', 'inst', 'instOrder'}, {'data'});

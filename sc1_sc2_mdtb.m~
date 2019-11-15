@@ -555,12 +555,17 @@ switch what
                                     tt = (R.setSize==Cc.trialType(ic0));
                                 elseif strcmp(Cc.taskNames{ic0},'nBack') || strcmp(Cc.taskNames{ic0},'nBackPic')
                                     tt = (R.respMade==Cc.trialType(ic0));
-                                elseif strcmp(Cc.taskNames{ic0},'motorImagery') || strcmp(Cc.taskNames{ic0},'ToM'),
+                                elseif strcmp(Cc.taskNames{ic0},'motorImagery') || strcmp(Cc.taskNames{ic0},'ToM')
                                     tt = 1;
                                 end
                                 onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
                             case 'sc2'
-                                onset=[P.realStartTime(ST)+R.startTimeReal(R.condition==Cc.trialType(ic0))+announceTime-(J.timing.RT*numDummys)];
+                                if strcmp(Cc.taskNames{ic0},'CPRO')
+                                    tt = 1;
+                                elseif strcmp(Cc.taskNames{ic0},'ToM2')
+                                    tt = 1;
+                                end
+                                onset=[P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
                         end % switch experiment
 
                         % loop through trial-types (ex. congruent or incongruent)
@@ -605,7 +610,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-%             spm_rwls_run_fmri_spec(J);
+            spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -1305,11 +1310,11 @@ switch what
         experiment_num = 1;           %% enter 1 for sc1 and 2 for sc2
         glm            = 4;           %% glm number
         replaceNaN     = 1;           %% replacing NaNs
-        con_vs         = 'rest'; %% contrast was calculated against 'rest' or 'average'        
+        con_vs         = 'average_4'; %% contrast was calculated against 'rest' or 'average'        
         smooth         = 1;           %% add smoothing
         kernel         = 1;           %% for smoothing
         which          = 'task';      %% 'task' for glm8 and 'cond' for glm7
-        normmode       = 'NW';        %% can be set to either 'UW' or 'NW';
+        normmode       = 'UW';        %% can be set to either 'UW' or 'NW';
         
         vararginoptions(varargin,{'sn', 'atlas_res', 'experiment_num', 'glm', ...
             'replaceNaN', 'con_vs', 'smooth', 'kernel', 'which', 'normmode'});
@@ -1573,7 +1578,7 @@ switch what
         
         sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type           = 'beta';                  %% enter the image you want to reslice to suit space
+        type           = 'con';                  %% enter the image you want to reslice to suit space
         glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         con_vs         = 'average_4';            %% option for the contrasts and spmT
@@ -1922,17 +1927,19 @@ switch what
         % setting directories
         encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));
 
-        hemis      = {'L', 'R'}; % looping through two hemispheres
-        structures = {'cortex', 'cerebellum'}; % looping through two structures
+        hemis_num  = [1, 2];     % looping through two hemispheres (L = 1, R = 2, also cereb is set to 0)
+        hemis      = {'L', 'R'};
+        structures_num = [1, 2]; % looping through two structures (cortex = 1, cereb = 2)
         
         df = []; % dataframe that has all the variables for doing the scatter plots
         for s = sn 
-            temp = [];
-            for sc = 1:length(structures)
-                temp.structure = {structures{sc}};
-                if strcmp(structures{sc}, 'cortex')
+            fprintf('getting data for %s\n', subj_name{s})
+            temp.sn = s;
+            for sc = 1:length(structures_num)
+                temp.structure = structures_num(sc);
+                if structures_num(sc) == 1 % cortex
                     for ih = 1:length(hemis)
-                        temp.hemi = {hemis{ih}};
+                        temp.hemi = hemis_num(ih);
                         load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_cortex_%s.mat', glm, hemis{ih})));
                         % remove unnecessary fields
                         y_rf = rmfield(Y, {'time', 'taskName_before', 'taskName_after', 'sess', 'TN', 'SN'});
@@ -1959,12 +1966,36 @@ switch what
                         df = addstruct(df, temp);
                     end % ih (hemispheres)
                 else % the structure is the cerebellum and you don't need to loop through hemispheres
+                    temp.hemi = 0;
                     load(fullfile(encodingDir, subj_name{s}, sprintf('Y_info_glm%d_%s.mat', glm, data_cereb)));
+                    % remove unnecessary fields
+                    y_rf = rmfield(Y, {'time', 'taskName_before', 'taskName_after', 'sess', 'TN', 'SN', ...
+                        'identity', 'nonZeroInd'});
+                    
+                    % get the baseline for betas
+                    switch centre % centre against what?
+                        case 'average' % centre against the average of all the tasks except for instructions
+                            % remove the instructions
+                            y_rf_ri = getrow(y_rf, y_rf.task ~= 0);
+                            
+                            % group the data with tapply
+                            t_run = tapply(y_rf_ri, {'task', 'inst', 'instOrder'}, {'data'});
+                            baseline = nanmean(t_run.data);
+                        case 'rest'    % centre against the rest (for glm8 it is explicitly moedled)
+                    end % switch centre
+                    t_runa  = tapply(y_rf, {'task', 'inst', 'instOrder'}, {'data'});
+                    uwBeta  = t_runa.data;
+                    centred = bsxfun(@minus, uwBeta, baseline);
+                    
+                    % get the average beta value for structures{sc}
+                    avgBeta = mean(centred, 2);
+                    temp.mBeta = avgBeta';
+                    %                         clear Y y_rf y_rf_ri t_run t_runa uwBeta centred avgBeta
+                    df = addstruct(df, temp);
                 end % if the structure is cortex then you need to loop through hemispheres
             end % sc (structures)
-            
-            
         end % s (sn)
+        keyboard
 
     case 'Visualize:mdtb:suit'
         % takes in a vector (or map) for a subject and transfer it to suit space and plot it
