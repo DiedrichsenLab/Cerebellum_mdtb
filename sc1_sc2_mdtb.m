@@ -20,6 +20,7 @@ numTRs    = 601; % number of scans per run
 %  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
 baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
+baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -542,8 +543,9 @@ switch what
                         D  = dload(fullfile(baseDir, experiment,behavDir, subj_name{s},sprintf('%s_%s_%s.dat', experiment, subj_name{s}, Cc.taskNames{ic0})));
                         R  = getrow(D,D.runNum==runB(r)); % functional runs
                         ST = find(strcmp(P.taskName,Cc.taskNames{ic0}));
+                        
 
-                        switch experiment % the onsets for sc1 and sc2 are determined differently!
+                        switch(experiment) % the onsets for sc1 and sc2 are determined differently!
                             case 'sc1' 
                                 % determine trialType (ugly -- but no other way)
                                 if isfield(R,'trialType')
@@ -558,20 +560,21 @@ switch what
                                 elseif strcmp(Cc.taskNames{ic0},'motorImagery') || strcmp(Cc.taskNames{ic0},'ToM')
                                     tt = 1;
                                 end
-                                onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
                             case 'sc2'
-                                if strcmp(Cc.taskNames{ic0},'CPRO')
+                                  tt = (R.condition==Cc.trialType(ic0));
+                                  if strcmp(Cc.taskNames{ic0},'CPRO')
                                     tt = 1;
                                 elseif strcmp(Cc.taskNames{ic0},'ToM2')
                                     tt = 1;
                                 end
-                                onset=[P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
                         end % switch experiment
+                        
+                        onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
 
                         % loop through trial-types (ex. congruent or incongruent)
                         J.sess(r).cond(ic).name     = Cc.condNames{ic0};
                         J.sess(r).cond(ic).onset    = onset; % correct start time for numDummys and announcetime included (not for instruct)
-                        J.sess(r).cond(ic).duration = Cc.duration(ic0);  % duration of trials (+ fixation cross) we are modeling
+                        J.sess(r).cond(ic).duration = ones(1,length(onset))*Cc.duration(ic0);  % duration of trials (+ fixation cross) we are modeling
                         J.sess(r).cond(ic).tmod     = 0;
                         J.sess(r).cond(ic).orth     = 0;
                         J.sess(r).cond(ic).pmod     = struct('name', {}, 'param', {}, 'poly', {});
