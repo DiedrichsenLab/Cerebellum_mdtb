@@ -2065,7 +2065,7 @@ switch what
         
         keyboard;
         
-    case 'Houskeeping:renameSPM'     
+    case 'Houskeeping:renameSPM'
         % rename SPM directories
         % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
@@ -2100,12 +2100,13 @@ switch what
         sn             = returnSubjs;
         experiment_num = 1;
         glm            = 8;
-        con_vs         = 'average_4';
+        con_vs         = 'rest_task';
         nTrans         = 272;
-        copywhich      = 'transitions';
+        copywhich      = 'SURF_files';
         serverDir      = '/Volumes/MotorControl/data/super_cerebellum_new';
-        
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich', 'serverDir'});
+        atlas_res      = 32;
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich',...
+            'atlas_res', 'serverDir'});
         
         experiment = sprintf('sc%d', experiment_num);
         switch copywhich
@@ -2134,7 +2135,6 @@ switch what
                 end % s (sn)
             case 'transitions'   % copying files for transitions
                 
-                experiment = sprintf('sc%d', experiment);
                 % copy files from group32k to server
                 for tt = 1:nTrans
                     for h = 1:2
@@ -2272,6 +2272,55 @@ switch what
                     end % icf (files to be copied)
                     
                 end % s (sn)
+            case 'SURF_files' % copies contrast map and betas to the surface
+                
+                sourceDir = fullfile(baseDir, experiment, 'surfaceWB', sprintf('glm%d', glm));
+                
+                for s = sn
+                    for h = 1:2
+                        source = fullfile(sourceDir, subj_name{s});
+                        destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), subj_name{s});
+                        dircheck(destination);
+                        
+                        %                         sourceFile = fullfile(source, sprintf('s%s.group.con_transition_%d-%s.func.gii', hemI{h}, tt, con_vs));
+                        sourceFile = fullfile(source, sprintf('%s.%s.wcon-%s.func.gii', subj_name{s}, hemI{h}, con_vs));
+                        
+                        [success(s, h), Message{s, h}, ~] = copyfile(sourceFile, destination);
+                        if success(s, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                        
+                        clear sourceFile success Message
+                        
+                        sourceFile = fullfile(source, sprintf('%s.%s.%s.beta.%dk.func.gii', subj_name{s}, hemI{h}, experiment, atlas_res));
+                        
+                        [success(s, h), Message{s, h}, ~] = copyfile(sourceFile, destination);
+                        if success(s, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                        
+                    end % h
+                end % s (sn)
+                
+                clear source destination sourceFile
+                % copying group files
+                source = fullfile(sourceDir, sprintf('group%dk', atlas_res));
+                destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), sprintf('group%dk', atlas_res));
+                
+                for h = 1:2
+                    sourceFile = fullfile(source, sprintf('s%s.group.wcon_task-%s.%dk.func.gii', hemI{h}, con_vs, atlas_res));
+                    
+                    [successg(h), Messageg{h}, ~] = copyfile(sourceFile, destination);
+                    if successg(h) == 1
+                        fprintf('%s coppied to the server\n', sourceFile);
+                    else
+                        fprintf('copying %s to the server failed\n', sourceFile)
+                    end
+                end % h(hemi)    
         end
 end
 end
