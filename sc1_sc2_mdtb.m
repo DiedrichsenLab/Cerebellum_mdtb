@@ -18,8 +18,8 @@ numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
 %  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
-baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
-% baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
+% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 % baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
 
 %%% setting directory names
@@ -2418,7 +2418,7 @@ switch what
         A = getrow(A, A.runNum >= funcRunNum(1) & A.runNum <= funcRunNum(2));
         
         for r = runLst 
-            for ic = 1:length(condList)                
+            for ic = 1:length(condList)
                 numCond = length(find(Cc.taskNum == Cc.taskNum(strcmp(Cc.condNames,condList{ic}))));
                 
                 P  = getrow(A,A.runNum == runB(r));
@@ -2441,20 +2441,24 @@ switch what
                 end
                 
                 % Calculate the onset 
-                onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                onset = ([P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)])';
                 % get the duration
-                duration = ones(1,length(onset))*Cc.duration(strcmp(Cc.condNames,condList{ic}));
+                duration = Cc.duration(strcmp(Cc.condNames,condList{ic}));
+                boxcar = zeros(1, length(onset));
+                trial_times = round(onset) + duration;
+                boxcar(trial_times) = 1;
                 
-                for io = 1:length(onset)
-                    % generating square waves
-                    start = onset(io);
-                    dur = duration(io);
-                    plot()
-                end % io
+                figure;
+                subplot(211)
+                plot(boxcar(min(trial_times)-5:end));
+                title(sprintf('boxcars for %s', condList{ic}));
                 
-                
-                figure; stem(onset, zeros(1, length(onset)));
-                title(sprintf('onsets for %s', condList{ic}))
+                canonical_hrf = spm_hrf(1);
+                regs = conv(boxcar, canonical_hrf);
+                subplot(212)
+                plot(regs(min(trial_times) - 5:end));
+                title(sprintf('regressor for %s', condList{ic}));
+                keyboard;
                 
             end % ic (conditions)
         end % r (runs)
