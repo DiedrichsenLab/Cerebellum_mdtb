@@ -20,7 +20,7 @@ numTRs    = 601; % number of scans per run
 %  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
 baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
-baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
+% baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -471,10 +471,10 @@ switch what
                 case 'sc1'
                     if strcmp(subj_name{s},'s18')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,61,62,63,64,65,66,60];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09','11','12','13','14','15','16','10'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','16','10','11','12','13','14','15'};
                     elseif strcmp(subj_name{s},'s21')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,60,61,63,64,65,66,62];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09', '10', '11','13','14','15','16','12'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','10','16','11','12','13','14','15'};
                     else
 %                         runTrue = runB;
                         runTruestr = run{1};
@@ -530,6 +530,7 @@ switch what
                     S.task  = Cc.taskNum(1);
                     S.cond  = 0;
                     S.TN    = {Cc.condNames{1}};
+                    S.CN    = {Cc.condNames{1}};
                     S.sess  = sess(r);
                 
                     T  = addstruct(T,S);
@@ -589,7 +590,8 @@ switch what
                         
                         S.task  = Cc.taskNum(ic0);
                         S.cond  = Cc.condNum(ic0);
-                        S.TN    = {Cc.condNames{ic0}};
+                        S.CN    = {Cc.condNames{ic0}};
+                        S.TN    = {Cc.taskNames{ic0}};
                         S.sess  = sess(r);
                         
                         T  = addstruct(T,S); 
@@ -668,10 +670,10 @@ switch what
                 case 'sc1'
                     if strcmp(subj_name{s},'s18')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,61,62,63,64,65,66,60];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09','11','12','13','14','15','16','10'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','16','10','11','12','13','14','15'};
                     elseif strcmp(subj_name{s},'s21')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,60,61,63,64,65,66,62];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09', '10', '11','13','14','15','16','12'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','10','16','11','12','13','14','15'};
                     else
                         %                         runTrue = runB;
                         runTruestr = run{1};
@@ -2095,7 +2097,7 @@ switch what
         end % s (sn)
     case 'Houskeeping:move_files'
         % moving files to the server
-        % Example: sc1_sc2_mdtb('Houskeeping:move_files')
+        % Example: sc1_sc2_mdtb('Houskeeping:move_files', 'copywhich', 'SURF_files')
         
         sn             = returnSubjs;
         experiment_num = 1;
@@ -2322,6 +2324,65 @@ switch what
                     end
                 end % h(hemi)    
         end
+        
+    case 'CHECK:mdtb:glms'
+        % checking the regressors for all of the tasks and conditions in
+        % all runs.
+        % Example: sc1_sc2_mdtb('CHECK:mdtb:glms')
+        sn             = 30;
+        glm            = 7;
+        run_num        = 5;
+        experiment_num = 1;
+        which          = 'CN';
+        what_plot      = 'irun'; % can be set to 'irun'
+        
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'run_num', 'what_plot'})
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        glmSubjDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm), subj_name{sn});
+        
+        if glm == 4
+            which = 'TN';
+        elseif glm == 8
+            which = 'TN';
+        elseif glm == 7
+            which = 'CN';
+        end % glm4 info file is created differently
+        % load in SPM
+        load(fullfile(glmSubjDir, 'SPM.mat'));
+        X = SPM.xX.X;
+        % discarding the intercepts
+        X = X(:, 1:end - 16);
+        
+        % load in SPM_info.mat
+        T = load(fullfile(glmSubjDir, 'SPM_info.mat'));
+        
+        condNames = unique(T.(which), 'stable');
+        
+        switch what_plot
+            case 'ireg' % plots a regressor across all the runs
+                for i = 1:length(condNames)
+                    tindx = strcmp(T.(which), condNames{i});
+                    reg = X(:, tindx);
+                    
+                    figure;
+                    plot(reg);
+                    title(sprintf('regressor for glm %d %s %s %s', glm, which, condNames{i}, subj_name{sn}));
+                end % i (conditions)
+            case 'irun' % for each run, plots all the regressors
+                for ir = runLst
+                    a = (ir - 1) * 598 + 1;
+                    b = ir * 598;
+                    rindx = T.run == ir;
+                    regs  = X(a:b, rindx);
+                    
+                    figure; 
+                    plot(regs);
+                    title(sprintf('all the regressors for run %d glm %d %s %s', ir, glm, which, subj_name{sn}));
+                end % ir (runs)
+        end
+        keyboard;   
 end
 end
 

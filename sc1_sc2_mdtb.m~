@@ -20,7 +20,7 @@ numTRs    = 601; % number of scans per run
 %  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
 baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
-baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
+% baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -530,6 +530,7 @@ switch what
                     S.task  = Cc.taskNum(1);
                     S.cond  = 0;
                     S.TN    = {Cc.condNames{1}};
+                    S.CN    = {Cc.condNames{1}};
                     S.sess  = sess(r);
                 
                     T  = addstruct(T,S);
@@ -545,14 +546,14 @@ switch what
                         ST = find(strcmp(P.taskName,Cc.taskNames{ic0}));
                         
 
-                        switch experiment % the onsets for sc1 and sc2 are determined differently!
-                            % determine trialType (ugly -- but no other way)
-                            if isfield(R,'trialType')
-                                tt = (R.trialType==Cc.trialType(ic0));
-                            else
-                                tt = Cc.trialType(ic0);
-                            end
+                        switch(experiment) % the onsets for sc1 and sc2 are determined differently!
                             case 'sc1' 
+                                % determine trialType (ugly -- but no other way)
+                                if isfield(R,'trialType')
+                                    tt = (R.trialType==Cc.trialType(ic0));
+                                else
+                                    tt = Cc.trialType(ic0);
+                                end
                                 if strcmp(Cc.taskNames{ic0},'visualSearch')
                                     tt = (R.setSize==Cc.trialType(ic0));
                                 elseif strcmp(Cc.taskNames{ic0},'nBack') || strcmp(Cc.taskNames{ic0},'nBackPic')
@@ -562,7 +563,7 @@ switch what
                                 end
                             case 'sc2'
                                   tt = (R.condition==Cc.trialType(ic0));
-                                    if strcmp(Cc.taskNames{ic0},'CPRO')
+                                  if strcmp(Cc.taskNames{ic0},'CPRO')
                                     tt = 1;
                                 elseif strcmp(Cc.taskNames{ic0},'ToM2')
                                     tt = 1;
@@ -589,7 +590,8 @@ switch what
                         
                         S.task  = Cc.taskNum(ic0);
                         S.cond  = Cc.condNum(ic0);
-                        S.TN    = {Cc.condNames{ic0}};
+                        S.CN    = {Cc.condNames{ic0}};
+                        S.TN    = {Cc.taskNames{ic0}};
                         S.sess  = sess(r);
                         
                         T  = addstruct(T,S); 
@@ -613,7 +615,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-            spm_rwls_run_fmri_spec(J);
+%             spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -668,10 +670,10 @@ switch what
                 case 'sc1'
                     if strcmp(subj_name{s},'s18')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,61,62,63,64,65,66,60];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09','11','12','13','14','15','16','10'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','16','10','11','12','13','14','15'};
                     elseif strcmp(subj_name{s},'s21')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,60,61,63,64,65,66,62];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09', '10', '11','13','14','15','16','12'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','10','16','11','12','13','14','15'};
                     else
                         %                         runTrue = runB;
                         runTruestr = run{1};
@@ -2065,7 +2067,7 @@ switch what
         
         keyboard;
         
-    case 'Houskeeping:renameSPM'     
+    case 'Houskeeping:renameSPM'
         % rename SPM directories
         % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
@@ -2095,17 +2097,18 @@ switch what
         end % s (sn)
     case 'Houskeeping:move_files'
         % moving files to the server
-        % Example: sc1_sc2_mdtb('Houskeeping:move_files')
+        % Example: sc1_sc2_mdtb('Houskeeping:move_files', 'copywhich', 'SURF_files')
         
         sn             = returnSubjs;
         experiment_num = 1;
         glm            = 8;
-        con_vs         = 'average_4';
+        con_vs         = 'rest_task';
         nTrans         = 272;
-        copywhich      = 'transitions';
+        copywhich      = 'SURF_files';
         serverDir      = '/Volumes/MotorControl/data/super_cerebellum_new';
-        
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich', 'serverDir'});
+        atlas_res      = 32;
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'nTrans', 'copywhich',...
+            'atlas_res', 'serverDir'});
         
         experiment = sprintf('sc%d', experiment_num);
         switch copywhich
@@ -2134,7 +2137,6 @@ switch what
                 end % s (sn)
             case 'transitions'   % copying files for transitions
                 
-                experiment = sprintf('sc%d', experiment);
                 % copy files from group32k to server
                 for tt = 1:nTrans
                     for h = 1:2
@@ -2272,7 +2274,114 @@ switch what
                     end % icf (files to be copied)
                     
                 end % s (sn)
+            case 'SURF_files' % copies contrast map and betas to the surface
+                
+                sourceDir = fullfile(baseDir, experiment, 'surfaceWB', sprintf('glm%d', glm));
+                
+                for s = sn
+                    for h = 1:2
+                        source = fullfile(sourceDir, subj_name{s});
+                        destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), subj_name{s});
+                        dircheck(destination);
+                        
+                        %                         sourceFile = fullfile(source, sprintf('s%s.group.con_transition_%d-%s.func.gii', hemI{h}, tt, con_vs));
+                        sourceFile = fullfile(source, sprintf('%s.%s.wcon-%s.func.gii', subj_name{s}, hemI{h}, con_vs));
+                        
+                        [success(s, h), Message{s, h}, ~] = copyfile(sourceFile, destination);
+                        if success(s, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                        
+                        clear sourceFile success Message
+                        
+                        sourceFile = fullfile(source, sprintf('%s.%s.%s.beta.%dk.func.gii', subj_name{s}, hemI{h}, experiment, atlas_res));
+                        
+                        [success(s, h), Message{s, h}, ~] = copyfile(sourceFile, destination);
+                        if success(s, h) == 1
+                            fprintf('%s coppied to the server\n', sourceFile);
+                        else
+                            fprintf('copying %s to the server failed\n', sourceFile)
+                        end
+                        
+                    end % h
+                end % s (sn)
+                
+                clear source destination sourceFile
+                % copying group files
+                source = fullfile(sourceDir, sprintf('group%dk', atlas_res));
+                destination = fullfile(serverDir, experiment, 'surfaceWB', sprintf('glm%d', glm), sprintf('group%dk', atlas_res));
+                
+                for h = 1:2
+                    sourceFile = fullfile(source, sprintf('s%s.group.wcon_task-%s.%dk.func.gii', hemI{h}, con_vs, atlas_res));
+                    
+                    [successg(h), Messageg{h}, ~] = copyfile(sourceFile, destination);
+                    if successg(h) == 1
+                        fprintf('%s coppied to the server\n', sourceFile);
+                    else
+                        fprintf('copying %s to the server failed\n', sourceFile)
+                    end
+                end % h(hemi)    
         end
+        
+    case 'CHECK:mdtb:glms'
+        % checking the regressors for all of the tasks and conditions in
+        % all runs.
+        % Example: sc1_sc2_mdtb('CHECK:mdtb:glms')
+        sn             = 30;
+        glm            = 7;
+        run_num        = 5;
+        experiment_num = 1;
+        which          = 'CN';
+        what_plot      = 'irun'; % can be set to 'irun'
+        
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'run_num', 'what_plot'})
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        glmSubjDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm), subj_name{sn});
+        
+        if glm == 4
+            which = 'TN';
+            
+        end % glm4 info file is created differently
+        % load in SPM
+        load(fullfile(glmSubjDir, 'SPM.mat'));
+        X = SPM.xX.X;
+        % discarding the intercepts
+        X = X(:, 1:end - 16);
+        
+        % load in SPM_info.mat
+        T = load(fullfile(glmSubjDir, 'SPM_info.mat'));
+        
+        condNames = unique(T.(which), 'stable');
+        
+        switch what_plot
+            case 'ireg' % plots a regressor across all the runs
+                for i = 1:length(condNames)
+                    tindx = strcmp(T.(which), condNames{i});
+                    reg = X(:, tindx);
+                    
+                    figure;
+                    plot(reg);
+                    title(sprintf('regressor for glm %d %s %s %s', glm, which, condNames{i}, subj_name{sn}));
+                end % i (conditions)
+            case 'irun' % for each run, plots all the regressors
+                for ir = runLst
+                    a = (ir - 1) * 598 + 1;
+                    b = ir * 598;
+                    rindx = T.run == ir;
+                    regs  = X(a:b, rindx);
+                    
+                    figure; 
+                    plot(regs);
+                    title(sprintf('all the regressors for run %d glm %d %s %s', ir, glm, which, subj_name{sn}));
+                end % ir (runs)
+        end
+        keyboard;
+        
+        
 end
 end
 
