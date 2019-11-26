@@ -2447,7 +2447,9 @@ switch what
                 
                 for io = 1:length(onset)
                     % generating square waves
-                    
+                    start = onset(io);
+                    dur = duration(io);
+                    plot()
                 end % io
                 
                 
