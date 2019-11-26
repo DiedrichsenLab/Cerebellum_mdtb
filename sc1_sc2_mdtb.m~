@@ -426,7 +426,7 @@ switch what
     case 'GLM:mdtb:design_glm7' % GLM with each condition modelled as a regressor. The instruction for each TASK is also modeled as a separate regressor
         %%% This case will calculate the design matrix with the instruction
         %%% period for each task separated and coming before the task.
-        % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [3]);
+        % Example: sc1_sc2_mdtb('GLM:mdtb:design_glm7', 'sn', [20]);
         
         sn             = returnSubjs; %% list of subjects
         experiment_num = 1;           %% sc1 or sc2?
@@ -471,10 +471,10 @@ switch what
                 case 'sc1'
                     if strcmp(subj_name{s},'s18')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,61,62,63,64,65,66,60];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09','11','12','13','14','15','16','10'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','16','10','11','12','13','14','15'};
                     elseif strcmp(subj_name{s},'s21')
                         %                 runTrue = [51,52,53,54,55,56,57,58,59,60,61,63,64,65,66,62];
-                        runTruestr = {'01','02','03','04','05','06','07','08','09', '10', '11','13','14','15','16','12'};
+                        runTruestr = {'01','02','03','04','05','06','07','08','09','10','16','11','12','13','14','15'};
                     else
 %                         runTrue = runB;
                         runTruestr = run{1};
@@ -615,7 +615,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-%             spm_rwls_run_fmri_spec(J);
+            spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -1583,7 +1583,7 @@ switch what
         
         sn             = returnSubjs;            %% list of subjects
         experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
-        type           = 'con';                  %% enter the image you want to reslice to suit space
+        type           = 'beta';                  %% enter the image you want to reslice to suit space
         glm            = 8;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         con_vs         = 'average_4';            %% option for the contrasts and spmT
@@ -2344,7 +2344,10 @@ switch what
         
         if glm == 4
             which = 'TN';
-            
+        elseif glm == 8
+            which = 'TN';
+        elseif glm == 7
+            which = 'CN';
         end % glm4 info file is created differently
         % load in SPM
         load(fullfile(glmSubjDir, 'SPM.mat'));
@@ -2379,7 +2382,82 @@ switch what
                     title(sprintf('all the regressors for run %d glm %d %s %s', ir, glm, which, subj_name{sn}));
                 end % ir (runs)
         end
-        keyboard;
+        keyboard; 
+    case 'CHECK:mdtb:data'
+        % Checking the onsets and durations of the tasks and conditions
+        % identified using the previous case:
+        % stroop cong, stroop incong, Obj2back, Obj0back, Verbal2Back, Verbal0Back
+        % IntervalTiming, Happy faces, Sad faces, Pleasant scenes,
+        % Unpleasant scenes, go, NoGo.
+        % Example: sc1_sc2_mdtb('CHECK:mdtb:data')
+        
+        sn             = 20; % subject that will be used for checking
+        experiment_num = 1;
+        glm            = 7;
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        announceTime = 5;
+        J.timing.RT  = 1.0;
+        % load in task information
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM7.txt'));
+        Cc = getrow(C, C.StudyNum == experiment_num);
+        
+        condList = {'NoGo', 'Go', 'UnpleasantScenes', 'PleasantScenes', 'SadFaces', 'HappyFaces', ...
+            'IntervalTiming', 'Object0Back', 'Object2Back', 'StroopIncon', 'StroopCon', ...
+            'Verbal0Back', 'Verbal2Back'};
+        
+        % setting the directories
+        bDir     = fullfile(baseDir, experiment, 'data');
+        bSubjDir = fullfile(bDir, subj_name{sn});
+        
+        % get the onsets and durations
+        A = dload(fullfile(bSubjDir,sprintf('%s_%s.dat', experiment, subj_name{sn})));
+        A = getrow(A, A.runNum >= funcRunNum(1) & A.runNum <= funcRunNum(2));
+        
+        for r = runLst 
+            for ic = 1:length(condList)                
+                numCond = length(find(Cc.taskNum == Cc.taskNum(strcmp(Cc.condNames,condList{ic}))));
+                
+                P  = getrow(A,A.runNum == runB(r));
+                TN = unique(Cc.taskNames(strcmp(Cc.condNames,condList{ic})));
+                ST = find(strcmp(P.taskName,Cc.taskNames(strcmp(Cc.condNames,condList{ic}))));
+                D  = dload(fullfile(bSubjDir,sprintf('%s_%s_%s.dat', experiment, subj_name{sn}, TN{1})));
+                R  = getrow(D,D.runNum==runB(r)); % functional runs
+                
+                if isfield(R,'trialType')
+                    tt = (R.trialType==Cc.trialType(strcmp(Cc.condNames,condList{ic})));
+                else
+                    tt = Cc.trialType(strcmp(Cc.condNames,condList{ic}));
+                end
+                if strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'visualSearch')
+                    tt = (R.setSize==Cc.trialType(strcmp(Cc.condNames,condList{ic})));
+                elseif strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'nBack') || strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'nBackPic')
+                    tt = (R.respMade==Cc.trialType(strcmp(Cc.condNames,condList{ic})));
+                elseif strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'motorImagery') || strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'ToM')
+                    tt = 1;
+                end
+                
+                % Calculate the onset 
+                onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                % get the duration
+                duration = ones(1,length(onset))*Cc.duration(strcmp(Cc.condNames,condList{ic}));
+                
+                for io = 1:length(onset)
+                    
+                end % io
+                
+                
+                figure; stem(onset, zeros(1, length(onset)));
+                title(sprintf('onsets for %s', condList{ic}))
+                
+            end % ic (conditions)
+        end % r (runs)
+        
+        
+        
         
         
 end
