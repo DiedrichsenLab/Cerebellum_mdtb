@@ -2393,9 +2393,10 @@ switch what
         
         sn             = 20; % subject that will be used for checking
         experiment_num = 1;
-        glm            = 7;
+%         glm            = 7;
+        all            = 0; % set this to 0 if you don't want to plot all the conditions
         
-        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'all'});
         
         experiment = sprintf('sc%d', experiment_num);
         
@@ -2405,9 +2406,15 @@ switch what
         C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM7.txt'));
         Cc = getrow(C, C.StudyNum == experiment_num);
         
-        condList = {'NoGo', 'Go', 'UnpleasantScenes', 'PleasantScenes', 'SadFaces', 'HappyFaces', ...
-            'IntervalTiming', 'Object0Back', 'Object2Back', 'StroopIncon', 'StroopCon', ...
-            'Verbal0Back', 'Verbal2Back'};
+        switch all
+            case 1
+                condList = Cc.condNames;
+                condList(1) = [];
+            case 0
+                condList = {'NoGo', 'Go', 'UnpleasantScenes', 'PleasantScenes', 'SadFaces', 'HappyFaces', ...
+                    'IntervalTiming', 'Object0Back', 'Object2Back', 'StroopIncon', 'StroopCon', ...
+                    'Verbal0Back', 'Verbal2Back'};
+        end
         
         % setting the directories
         bDir     = fullfile(baseDir, experiment, 'data');
@@ -2417,10 +2424,10 @@ switch what
         A = dload(fullfile(bSubjDir,sprintf('%s_%s.dat', experiment, subj_name{sn})));
         A = getrow(A, A.runNum >= funcRunNum(1) & A.runNum <= funcRunNum(2));
         
-        for r = runLst 
-            for ic = 1:length(condList)                
-                numCond = length(find(Cc.taskNum == Cc.taskNum(strcmp(Cc.condNames,condList{ic}))));
-                
+        for r = 1
+            for ic = 1:length(condList)
+                figure;
+                fprintf('condition is %s\n', condList{ic})
                 P  = getrow(A,A.runNum == runB(r));
                 TN = unique(Cc.taskNames(strcmp(Cc.condNames,condList{ic})));
                 ST = find(strcmp(P.taskName,Cc.taskNames(strcmp(Cc.condNames,condList{ic}))));
@@ -2436,30 +2443,58 @@ switch what
                     tt = (R.setSize==Cc.trialType(strcmp(Cc.condNames,condList{ic})));
                 elseif strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'nBack') || strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'nBackPic')
                     tt = (R.respMade==Cc.trialType(strcmp(Cc.condNames,condList{ic})));
+%                 elseif strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'motorImagery') || strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'ToM') || strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'checkerBoard')
                 elseif strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'motorImagery') || strcmp(Cc.taskNames(strcmp(Cc.condNames,condList{ic})),'ToM')
                     tt = 1;
                 end
                 
                 % Calculate the onset 
-                onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                onset = ([P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)])';
                 % get the duration
-                duration = ones(1,length(onset))*Cc.duration(strcmp(Cc.condNames,condList{ic}));
-                
+                duration = Cc.duration(strcmp(Cc.condNames,condList{ic}));
+%                 fprintf('duration for %s is %d\n', condList{ic}, duration);
                 for io = 1:length(onset)
+                    t = onset(io):(onset(io) + duration);
+                    y = heaviside(t);
                     
+                    subplot(131)
+                    plot(t, y, 'LineWidth', 1.5); 
+                    ylim([0, 1.2])
+                    hold on
+                    title(sprintf('boxcar for %s, duration %d', condList{ic}, duration))
+                    
+                    subplot(132)
+                    stem(onset');
+                    
+                    if isfield(R, 'trialType')
+                        subplot(133)
+                        stem(R.trialType)
+                    end % trying to figure out if there's sth wrong with the trial types
                 end % io
                 
                 
-                figure; stem(onset, zeros(1, length(onset)));
-                title(sprintf('onsets for %s', condList{ic}))
+%                 subplot(211)
+%                 plot(boxcar(min(trial_times)-5:end));
+                
+                
+%                 canonical_hrf  = spm_hrf(1); % where 2 represents the TR (in seconds)
+%                 stick_function = zeros(1,100);
+%                 trial_times=round(onset)+ duration;
+%                 stick_function(trial_times) = 1;
+%                 subplot(211)
+%                 plot(stick_function);
+%                 xlim([min(onset)- 50, max(onset)+50]);
+%                 title(sprintf('boxcars for %s', condList{ic}));
+%                 
+%                 regs = conv(stick_function, canonical_hrf);
+%                 subplot(212)
+%                 plot(regs);
+%                 xlim([min(onset)- 50, max(onset)+50]);
+%                 title(sprintf('regressor for %s', condList{ic}));
+%                 keyboard;
                 
             end % ic (conditions)
-        end % r (runs)
-        
-        
-        
-        
-        
+        end % r (runs)   
 end
 end
 
