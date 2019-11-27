@@ -437,7 +437,7 @@ switch what
         announceTime = 5;
                 
         % load in task information
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM72.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM7.txt'));
         Cc = getrow(C, C.StudyNum == experiment_num);
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
