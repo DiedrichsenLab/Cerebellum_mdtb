@@ -437,7 +437,7 @@ switch what
         announceTime = 5;
                 
         % load in task information
-        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM7.txt'));
+        C  = dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM72.txt'));
         Cc = getrow(C, C.StudyNum == experiment_num);
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
@@ -505,8 +505,7 @@ switch what
                     %%% include the instruction. But it includes rest!
                     % Instructions first
                     ST  = find(strcmp(P.taskName,Cc.taskNames{ic0}));
-                    instruct_onset = P.realStartTime(ST)-J.timing.RT*numDummys; %% get the instruction start time for the first task                   
-%                     instruct_onset = P.realStartTime(it)-J.timing.RT*numDummys; %% get the instruction start time for the first task
+                    instruct_onset = P.realStartTime(ST)-J.timing.RT*numDummys; %% get the instruction start time for the first task  
                     J.sess(r).cond(ic).name     = 'Instruct';
                     J.sess(r).cond(ic).onset    = instruct_onset(1); % correct start time for numDummys and announcetime included (not for instruct)
                     J.sess(r).cond(ic).duration = 5;  % duration of trials (+ fixation cross) we are modeling
@@ -539,8 +538,7 @@ switch what
                     numCond = length(find(Cc.taskNum == Cc.taskNum(ic0)));
                     
                     ic  = ic + 1; 
-                    for cond=1:numCond 
-                        
+                    for cond=1:numCond                         
                         D  = dload(fullfile(baseDir, experiment,behavDir, subj_name{s},sprintf('%s_%s_%s.dat', experiment, subj_name{s}, Cc.taskNames{ic0})));
                         R  = getrow(D,D.runNum==runB(r)); % functional runs
                         ST = find(strcmp(P.taskName,Cc.taskNames{ic0}));
@@ -565,12 +563,23 @@ switch what
                                   tt = (R.condition==Cc.trialType(ic0));
                                   if strcmp(Cc.taskNames{ic0},'CPRO')
                                     tt = 1;
-                                elseif strcmp(Cc.taskNames{ic0},'ToM2')
+                                  elseif strcmp(Cc.taskNames{ic0},'ToM2')
                                     tt = 1;
-                                end
+                                  end
                         end % switch experiment
                         
-                        onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                        switch experiment
+                            case 'sc1'
+                                if strcmp(Cc.taskNames{ic0},'intervalTiming')
+%                                 if strcmp(Cc.taskNames{ic0},'arithmetic') || strcmp(Cc.taskNames{ic0},'intervalTiming') || strcmp(Cc.taskNames{ic0},'checkerBoard')
+                                    onset = [P.realStartTime(ST)+R.startTimeReal+announceTime-(J.timing.RT*numDummys)];
+                                else
+                                    onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                                end
+                            case 'sc2'
+                                onset = [P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)];
+                        end
+                        
 
                         % loop through trial-types (ex. congruent or incongruent)
                         J.sess(r).cond(ic).name     = Cc.condNames{ic0};
@@ -2383,7 +2392,7 @@ switch what
                 end % ir (runs)
         end
         keyboard; 
-    case 'CHECK:mdtb:data'
+    case 'CHECK:mdtb:boxcars'
         % Checking the onsets and durations of the tasks and conditions
         % identified using the previous case:
         % stroop cong, stroop incong, Obj2back, Obj0back, Verbal2Back, Verbal0Back
@@ -2411,9 +2420,10 @@ switch what
                 condList = Cc.condNames;
                 condList(1) = [];
             case 0
-                condList = {'NoGo', 'Go', 'UnpleasantScenes', 'PleasantScenes', 'SadFaces', 'HappyFaces', ...
-                    'IntervalTiming', 'Object0Back', 'Object2Back', 'StroopIncon', 'StroopCon', ...
-                    'Verbal0Back', 'Verbal2Back', 'CheckerBoard'};
+%                 condList = {'NoGo', 'Go', 'UnpleasantScenes', 'PleasantScenes', 'SadFaces', 'HappyFaces', ...
+%                     'IntervalTiming', 'Object0Back', 'Object2Back', 'StroopIncon', 'StroopCon', ...
+%                     'Verbal0Back', 'Verbal2Back', 'CheckerBoard'};
+                condList = {'Math', 'DigitJudgement', 'IntervalTiming', 'CheckerBoard'};
         end
         
         % setting the directories
@@ -2449,7 +2459,8 @@ switch what
                 end
                 
                 % Calculate the onset 
-                onset = ([P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)])';
+%                 onset = ([P.realStartTime(ST)+R.startTimeReal(tt)+announceTime-(J.timing.RT*numDummys)])';
+                onset = ([P.realStartTime(ST)+R.startTimeReal+announceTime-(J.timing.RT*numDummys)])';
                 % get the duration
                 duration = Cc.duration(strcmp(Cc.condNames,condList{ic}));
 %                 fprintf('duration for %s is %d\n', condList{ic}, duration);
@@ -2496,7 +2507,52 @@ switch what
 %                 keyboard;
                 
             end % ic (conditions)
-        end % r (runs)   
+        end % r (runs)  
+    case 'CHECK:mdtb'
+        % figuring out which regressor is not correct. 
+        % Example: sc1_sc2_mdtb('CHECK:mdtb', 'sn', 2);
+        
+        sn = 2; 
+        experiment_num = 1;
+        glm = 7;
+        
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        % load in taskinfo
+        C  = dload(fullfile(baseDir, 'sc1_sc2_taskConds_GLM7.txt'));
+        Cc = getrow(C, C.StudyNum == experiment_num);
+        
+        glmSubjDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm), subj_name{sn});
+                
+        load(fullfile(glmSubjDir, 'SPM.mat'));
+        T = load(fullfile(glmSubjDir, 'SPM_info.mat'));
+        
+        X = SPM.xX.X(:, 1:end-16); % discarding the intercepts
+        
+        T_run = getrow(T, T.run == 1);
+        indr  = T.run == 1;
+        
+        X_run = X(1:598, indr); % get the regressors for run 1
+        
+        figure; % plotting all the regressors in one plot
+        % look at the printed statements on the matlab's command window
+        for ic = 1:29
+            fprintf('plotting the reg for %s\n', T_run.TN{ic})
+            plot(X_run(:, ic)); hold on            
+        end
+        figure; % adding the regressors for each task and plotting them
+        % look at the printing statements on the command window
+        tasks = unique(T_run.task, 'stable');
+        for it = 1:length(tasks)
+            name = T_run.TN(T_run.task == tasks(it));
+            fprintf('task is %s\n', name{1})
+            indt = T_run.task == tasks(it);
+            A = X_run(:, indt);
+            a = sum(A, 2);
+            plot(a); hold on;
+            keyboard;
+        end        
 end
 end
 
