@@ -875,7 +875,7 @@ switch what
         glm            = 8;              %% The glm number :)
         experiment_num = 1;
         con_vs         = 'average_4'; %% set it to 'rest' or 'average' (depending on the contrast you want)
-        which          = 'task';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
+        which          = 'cond';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
         vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'which'})
         
@@ -1920,8 +1920,48 @@ switch what
             save(fullfile(glmSuitGroupDir, sprintf('indMaps_%s_%s-vs-%s.mat', type, taskNames{cc}, con_vs)), 'maps', '-v7.3');
             fprintf('******************** %s group average for %s vs %s is created! ********************\n\n', type, taskNames{cc}, con_vs);
         end % contrasts (cc)
-        save(fullfile(glmSuitGroupDir, sprintf('indMaps_%s-vs-%s.mat', type, con_vs)), 'maps', '-v7.3');
-    
+        save(fullfile(glmSuitGroupDir, sprintf('indMaps_%s-vs-%s.mat', type, con_vs)), 'maps', '-v7.3');    
+    case 'SUIT:mdtb:groupmap_con_groupGiftis'
+        % Example:sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_groupGiftis')
+        
+        experiment_num = 1;
+        glm            = 8;
+        con_vs         = 'average_4';
+        which          = 'task';
+        replaceNaN     = 1;           %% replacing NaNs
+
+        vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'which', 'replaceNaN'});
+        
+        % load in task information
+        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        Cc       = getrow(C, C.StudyNum == experiment_num);
+        switch which
+            case 'task' % task for glm8
+                conNames = unique(Cc.taskNames);
+            case 'cond' % condition for glm7
+                conNames = unique(Cc.condNames);
+        end %% do you want the group maps for tasks or conditions
+                
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting directories
+        glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm), 'group');
+        
+        %%% creating a single file for each hemisphere
+        for cc = 1:length(conNames)
+            infilenames{cc}   = fullfile(glmSuitGroupDir,sprintf('Cereb.group.con_%s-%s.func.gii', conNames{cc}, con_vs));
+            columnName{cc} = sprintf('%s-%s', conNames{cc}, con_vs);
+        end % cc (condition)
+        cd(fullfile(glmSuitGroupDir));
+        outfilename = sprintf('Cereb.group.con_%s-%s.func.gii', which, con_vs);
+        surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaN);
+        fprintf('a single gifti file for contrasts for cerebellum successfully created\n')
+        
     case 'Summ:mdtb:beta_dataframe'
         % creates a dataframe that has all the task information and the
         % univariately prewhitened beta values in cortex and the
@@ -2081,8 +2121,8 @@ switch what
         % Example: sc1_sc2_mdtb('Houskeeping:renameSPM', 'experiment_num', 2, 'glm', 8)
         
         sn             = returnSubjs;
-        experiment_num = 1;
-        glm            = 4;
+        experiment_num = 2;
+        glm            = 7;
         
         vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
         
@@ -2512,11 +2552,11 @@ switch what
         % figuring out which regressor is not correct. 
         % Example: sc1_sc2_mdtb('CHECK:mdtb', 'sn', 2);
         
-        sn = 2; 
+        sn = 3; 
         experiment_num = 1;
         glm = 7;
-        
-        vararginoptions(varargin, {'sn', 'experiment_num', 'glm'});
+        r   = 3;
+        vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'r'});
         
         experiment = sprintf('sc%d', experiment_num);
         % load in taskinfo
@@ -2530,10 +2570,12 @@ switch what
         
         X = SPM.xX.X(:, 1:end-16); % discarding the intercepts
         
-        T_run = getrow(T, T.run == 1);
-        indr  = T.run == 1;
+        T_run = getrow(T, T.run == 2);
+        indr  = T.run == r;
         
-        X_run = X(1:598, indr); % get the regressors for run 1
+        a = (r - 1)* 598 + 1;
+        b = r*598;
+        X_run = X(a:b, indr); % get the regressors for run 1
         
         figure; % plotting all the regressors in one plot
         % look at the printed statements on the matlab's command window
@@ -2545,7 +2587,7 @@ switch what
         % look at the printing statements on the command window
         tasks = unique(T_run.task, 'stable');
         for it = 1:length(tasks)
-            name = T_run.TN(T_run.task == tasks(it));
+            name = Cc.taskNames(T_run.task == tasks(it));
             fprintf('task is %s\n', name{1})
             indt = T_run.task == tasks(it);
             A = X_run(:, indt);
