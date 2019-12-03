@@ -624,7 +624,7 @@ switch what
             J.cvi_mask         = {fullfile(baseDir, 'sc1', imDir,subj_name{s},'rmask_gray.nii')};
             J.cvi              =  'fast';
             
-            spm_rwls_run_fmri_spec(J);
+%             spm_rwls_run_fmri_spec(J);
             
             save(fullfile(J.dir{1},'SPM_info.mat'),'-struct','T');
             fprintf('******************** glm_%d (SPM.mat) has been saved for %s ********************\n\n',glm, subj_name{s}); 
@@ -871,7 +871,7 @@ switch what
         % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [17, 18], 'glm', 8, 'which', 'task')
         % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
         
-        sn             = returnSubjs;        %% list of subjects
+        sn             = returnSubjs;    %% list of subjects
         glm            = 8;              %% The glm number :)
         experiment_num = 1;
         con_vs         = 'average_4'; %% set it to 'rest' or 'average' (depending on the contrast you want)
@@ -1033,10 +1033,10 @@ switch what
         % gets the betas on the surface and univariately prewhiten them. It
         % saves the beta values for the cortex in a new structure that also
         % has the task info (using SPM_info.mat to get the task info).
-        % Example: sc1_sc2_mdtb('SURF:mdtb:UW_beta', 'sn', 2, 'experiment_num', 1, 'glm', 8)
+        % Example: sc1_sc2_mdtb('SURF:mdtb:UW_beta', 'experiment_num', 2, 'glm', 7)
         sn             = returnSubjs;
-        experiment_num = 1;
-        glm            = 8;
+        experiment_num = 2;
+        glm            = 7;
         atlas_res      = 32;
         
         vararginoptions(varargin, {'sn', 'experiment_num', 'glm', 'atlas_res'});
@@ -1070,16 +1070,16 @@ switch what
                 fprintf('******************** mapping ResMS to surface for %s hemi %s ********************\n', hemI{h}, subj_name{s});
                 ResMsImage{1}    = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
                 ResMs_colName{1} = 'ResMS.nii';
-                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}));
+                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}, experiment));
                 
                 G_ResMs = surf_vol2surf(C1.vertices,C2.vertices,ResMsImage,'column_names', ResMs_colName, ...
                         'anatomicalStruct',hemName{h});
-                save(G_ResMs, ResMs_outfile);
+%                 save(G_ResMs, ResMs_outfile);
                 
                 % start mapping betas to surface
                 filenames = dir(fullfile(glmSubjDir,'beta*'));
-                outfile   = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.glm%d_beta_cortex_%s.func.gii', ...
-                    subj_name{s}, hemI{h},glm));
+                outfile   = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.beta.func.gii', ...
+                    subj_name{s}, hemI{h}, experiment));
                 
                 for t = 1:length(filenames)
                     fileList{t}    = {filenames(t).name};
@@ -1091,7 +1091,7 @@ switch what
                 G = surf_vol2surf(C1.vertices,C2.vertices,images,'column_names', column_name, ...
                         'anatomicalStruct',hemName{h});
                 save(G, outfile);
-                
+
                 % write out new structure ('Y_info')
                 Y.data = bsxfun(@rdivide, G.cdata', sqrt(G_ResMs.cdata')); % UW betas
                 Y.data(end-numRuns+1:end, :)= []; % deleting the intercepts;
@@ -1134,14 +1134,30 @@ switch what
                 glmSubjDir =fullfile(glmDir,subj_name{s});
                 T=load(fullfile(glmDir, subj_name{s},'SPM_info.mat'));
                 filenames={};
-                for i=1:length(T.run)
+                for i=1:length(T.run) + 16 % also including the intercepts
                     filenames{i} = fullfile(glmSubjDir,sprintf('beta_%4.4d.nii',i));
+                    wcolNames{i}  = sprintf('wbeta_%4.4d',i);
+                    colNames{i}  = sprintf('beta_%4.4d',i);
                 end % i 
-                filenames{i+1} = fullfile(glmDir,'ResMS.nii');
-                outfile = fullfile(glmSurfDir, subj_name{s},sprintf('%s.%s.%s.beta.%dk.func.gii',subj_name{s},hemI{h},experiment,atlas_res));
+%                 filenames{i+1} = fullfile(glmDir,'ResMS.nii');
+                outfile = fullfile(glmSurfDir, subj_name{s},sprintf('%s.%s.%s.beta.func.gii',subj_name{s},hemI{h},experiment));
 
-                G=surf_vol2surf(C1.vertices,C2.vertices,filenames,'column_names',filenames,'anatomicalStruct',hemName{h});
+                G=surf_vol2surf(C1.vertices,C2.vertices,filenames,'column_names',colNames,'anatomicalStruct',hemName{h});
                 save(G,outfile);
+                
+                ResMsImage{1}    = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
+                ResMs_colName{1} = 'ResMS.nii';
+                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}, experiment));
+                
+                G_ResMs = surf_vol2surf(C1.vertices,C2.vertices,ResMsImage,'column_names', ResMs_colName, ...
+                        'anatomicalStruct',hemName{h});
+                save(G_ResMs, ResMs_outfile);
+                
+                
+                wcdata = bsxfun(@rdivide, G.cdata, G_ResMs.cdata);
+                wG=surf_makeFuncGifti(wcdata,'columnNames',wcolNames,'anatomicalStruct',hemName{h});
+                woutfile = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.wbeta.func.gii', subj_name{s}, hemI{h}, experiment));
+                save(wG, woutfile);
 
                 fprintf('mapped %s %s %s \n',subj_name{s},hemI{h},experiment);
             end % h (hmei)
@@ -1196,7 +1212,7 @@ switch what
     case 'SURF:mdtb:map_con_UW'
         % maps the contrasts and ResMS to the surface and also univariately
         % noise normalizes the contrasts using ResMS;
-        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_UW', 'sn', 2, 'experiment_num', 1, 'glm', 8)
+        % Example: sc1_sc2_mdtb('SURF:mdtb:map_con_UW', 'experiment_num', 2, 'glm', 7)
         
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
@@ -1317,7 +1333,7 @@ switch what
         end % sn
     case 'SURF:mdtb:groupmap_con'
         % creates group average contrast maps for task contrasts (from Eva)
-        % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con', 'sn', [3])
+        % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con', 'experiment_num', 2, 'glm', 7, 'which', 'cond')
     
         sn             = returnSubjs; %% list of subjects
         atlas_res      = 32;          %% set it to 32 or 164
@@ -1481,7 +1497,7 @@ switch what
         end % hemi(h)
     case 'SURF:mdtb:groupmap_con_groupGiftis'
         % takes in all the giftis for contrasts and make a single gifti 
-        % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_groupGiftis', 'experiment_num', 1, 'glm', 8, 'which', 'task', 'con_vs', 'average_4')
+        % Example: sc1_sc2_mdtb('SURF:mdtb:groupmap_con_groupGiftis', 'experiment_num', 2, 'glm', 7, 'which', 'cond', 'con_vs', 'average_4')
         
         experiment_num = 1;
         glm            = 8;
@@ -1588,12 +1604,12 @@ switch what
         % this case is used to reslice volumes into suit space
         % before you run all the cases for the group map, you have to run
         % this case to map all the contrast maps to suit space.
-        % Example: sc1_sc2_mdtb('SUIT:mdtb:reslice', 'sn', [3])
+        % Example: sc1_sc2_mdtb('SUIT:mdtb:reslice', 'experiment_num', 2, 'glm', 7, 'type', 'beta')
         
         sn             = returnSubjs;            %% list of subjects
-        experiment_num = 1;                      %% enter 1 for sc1 and 2 for sc2
+        experiment_num = 2;                      %% enter 1 for sc1 and 2 for sc2
         type           = 'beta';                  %% enter the image you want to reslice to suit space
-        glm            = 8;                      %% glm number
+        glm            = 7;                      %% glm number
         mask           = 'cereb_prob_corr_grey'; %% the cerebellar mask to be used:'cereb_prob_corr_grey' or 'cereb_prob_corr' or 'dentate_mask'
         con_vs         = 'average_4';            %% option for the contrasts and spmT
         
@@ -1781,6 +1797,109 @@ switch what
             fprintf('cerebellar voxels (%s) computed for %s \n', data, subj_name{s});
             clear B1 idx Bb indx
         end % s (sn)
+    case 'SUIT:mdtb:map_flatmap'
+        % maps betas, contrasts, spmT, and ResMS to flat map.
+        % It also maps the univariaately prewhitened betas to the flatmap
+        % first run with 'type', 'ResMS' to get the flatmap for the ResMS
+        % and then us 'normmode', 'UW' to get the univariately prewhitened
+        % betas and contrasts in suit space.
+        % Example:sc1_sc2_mdtb('SUIT:mdtb:map_flatmap', 'type', 'beta')
+        
+        sn             = returnSubjs;
+        glm            = 7;
+        experiment_num = 2;
+        type           = 'beta';      % can be set to 'beta', 'con', and 'ResMS'
+        which          = 'cond';      % can be set to 'task' or 'cond'
+        con_vs         = 'average_4'; % baseline for the contrast
+        normmode       = 'UW';        % can be set to 'UW' or 'NW'
+        
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'type', 'which', 'con_vs', 'normmode'});
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % setting directories
+        glmSuitDir = fullfile(baseDir, experiment, 'suit', sprintf('glm%d', glm));
+        glmDir     = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
+        
+        for s = sn
+            glmSuitSubjDir = fullfile(glmSuitDir, subj_name{s});
+            glmSubjDir     = fullfile(glmDir, subj_name{s});
+
+            T = load(fullfile(glmSubjDir,'SPM_info.mat'));
+            switch type
+                case 'beta'
+                    filenames={};
+                    for i=1:length(T.run) + 16 % also doing the intercepts
+                        filenames{i} = fullfile(glmSuitSubjDir,sprintf('wdbeta_%4.4d.nii',i));
+                        colNames{i}  = sprintf('wdbeta_%4.4d',i);
+                    end % i
+%                     filenames{i+1} = fullfile(glmDir,'ResMS.nii');
+                    D = suit_map2surf(filenames,'stats','nanmean');
+                    
+                    switch normmode
+                        case 'UW' % Prewhitening betas
+                            %%% load in the ResMS gifti file
+                            ResMS_gifti = gifti(fullfile(glmSuitSubjDir,sprintf('%s.Cereb.%s.ResMS.func.gii', subj_name{s}, experiment)));
+                            ResMS_data = ResMS_gifti.cdata;
+                            
+                            wD = bsxfun(@rdivide, D, sqrt(ResMS_data));
+                            woutfile = fullfile(glmSuitSubjDir, sprintf('%s.Cereb.%s.wbeta.func.gii',subj_name{s},experiment));
+                            
+                            wG = surf_makeFuncGifti(wD, 'anatomicalStruct', 'Cerebellum', 'columnNames', colNames); 
+                            save(wG,woutfile);
+                        case 'NW'
+                            outfile = fullfile(glmSuitSubjDir, sprintf('%s.Cereb.%s.beta.func.gii',subj_name{s},experiment)); 
+                            G = surf_makeFuncGifti(D, 'anatomicalStruct', 'Cerebellum', 'columnNames', colNames);
+                            save(G,outfile);
+                    end
+                    fprintf('mapped %s %s \n',subj_name{s},experiment);
+                case 'ResMS'
+                    filenames{1} = fullfile(glmSuitSubjDir,'wdResMS.nii');
+                    colNames{1}  = 'wdResMS';
+%                     filenames{i+1} = fullfile(glmDir,'ResMS.nii');
+                    outfile = fullfile(glmSuitSubjDir, sprintf('%s.Cereb.%s.ResMS.func.gii',subj_name{s},experiment));                    
+                    D = suit_map2surf(filenames,'stats','nanmean');
+                    
+                    G = surf_makeFuncGifti(D, 'anatomicalStruct', 'Cerebellum', 'columnNames', colNames);                    
+                    save(G,outfile);
+                    
+                    fprintf('mapped %s %s \n',subj_name{s},experiment);
+                case 'con'
+                    switch which
+                        case 'task'
+                            CN = 'TN';
+                        case 'cond'
+                            CN = 'CN';
+                    end
+                    condNames = unique(T.(CN), 'stable');
+                    
+                    filenames={};
+                    for i=1:length(condNames)
+                        filenames{i} = fullfile(glmSuitSubjDir,sprintf('wdcon_%s-%s.nii', condNames{i}, con_vs));
+                        colNames{i}  = sprintf('%s-%s', condNames{i}, con_vs);
+                    end % i
+%                     filenames{i+1} = fullfile(glmDir,'ResMS.nii');
+                    D = suit_map2surf(filenames,'stats','nanmean');
+                    switch normmode
+                        case 'UW' % Prewhitening betas
+                            %%% load in the ResMS gifti file
+                            ResMS_gifti = gifti(fullfile(glmSuitSubjDir,sprintf('%s.Cereb.%s.ResMS.func.gii', subj_name{s}, experiment)));
+                            ResMS_data = ResMS_gifti.cdata;
+                            
+                            wD = bsxfun(@rdivide, D, sqrt(ResMS_data));
+                            woutfile = fullfile(glmSuitSubjDir, sprintf('%s.Cereb.%s.wcon-%s.func.gii',subj_name{s},experiment, con_vs));
+                            
+                            wG = surf_makeFuncGifti(wD, 'anatomicalStruct', 'Cerebellum', 'columnNames', colNames);
+                            save(wG,woutfile);
+                        case 'NW'
+                            outfile = fullfile(glmSuitSubjDir, sprintf('%s.Cereb.%s.con-%s.func.gii',subj_name{s},experiment, con_vs));
+                            G = surf_makeFuncGifti(D, 'anatomicalStruct', 'Cerebellum', 'columnNames', colNames);
+                            save(G,outfile);
+                    end
+                    
+                    fprintf('mapped %s %s \n',subj_name{s},experiment);                   
+            end
+        end % s (sn) 
     case 'SUIT:mdtb:groupmap_con'
         % creates group average for the condition contrast maps.
         % you need to reslice all the images to suit space before running
@@ -1788,11 +1907,11 @@ switch what
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15]);
         
         sn             = returnSubjs;        %% list of subjects
-        experiment_num = 1;                  %% enter 1 for sc1 and 2 for sc2
+        experiment_num = 2;                  %% enter 1 for sc1 and 2 for sc2
         type           = 'con';              %% enter the image you want to reslice to suit space
-        glm            = 8;                  %% glm number
+        glm            = 7;                  %% glm number
         con_vs         = 'average_4';        %% is the contrast calculated vs 'rest' or 'average'
-        which          = 'task';             %% you may choose 'cond' or 'task'
+        which          = 'cond';             %% you may choose 'cond' or 'task'
         
         vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which', 'con_vs'});
         
@@ -1852,12 +1971,63 @@ switch what
             
             G = surf_makeFuncGifti(D, 'anatomicalStruct', 'Cerebellum', 'columnNames', {sprintf('group_%s_%s-%s', type, conNames{cc}, con_vs)});
             
+            save(G, fullfile(glmSuitGroupDir, sprintf('Cereb.con.con_%s-%s.func.gii', conNames{cc}, con_vs)));
+            
             save(G, fullfile(glmSuitGroupDir, sprintf('Cereb.group.con_%s-%s.func.gii', conNames{cc}, con_vs)));
             save(fullfile(glmSuitGroupDir, sprintf('indMaps_%s_%s-vs-%s.mat', type, conNames{cc}, con_vs)), 'maps', '-v7.3');
             fprintf('******************** %s group average for %s vs %s is created! ********************\n\n', type, conNames{cc}, con_vs);
             
         end % contrasts (cc)
         save(fullfile(glmSuitGroupDir, sprintf('indMaps_%s-vs-%s.mat', type, con_vs)), 'maps', '-v7.3');
+    case 'SUIT:mdtb:groupmap_con2'
+        % creates group average for the condition contrast maps.
+        % you need to reslice all the images to suit space before running
+        % this case
+        % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con2', 'sn', [2, 3, 4, 6, 8, 9, 10, 12, 14, 15]);
+        
+        sn             = returnSubjs;        %% list of subjects
+        experiment_num = 2;                  %% enter 1 for sc1 and 2 for sc2
+        type           = 'con';              %% enter the image you want to reslice to suit space
+        glm            = 7;                  %% glm number
+        con_vs         = 'average_4';        %% is the contrast calculated vs 'rest' or 'average'
+        which          = 'cond';             %% you may choose 'cond' or 'task'
+        
+        vararginoptions(varargin,{'sn', 'experiment_num', 'glm', 'type', 'which', 'con_vs'});
+        
+        % load in task information
+        C        = dload(fullfile(baseDir,'sc1_sc2_taskConds.txt'));
+        Cc       = getrow(C, C.StudyNum == experiment_num);
+        switch which
+            case 'task' % task for glm8
+                conNames = unique(Cc.taskNames, 'stable');
+            case 'cond' % condition for glm7
+                conNames = unique(Cc.condNames, 'stable');
+        end %% do you want the group maps for tasks or conditions
+        
+        % in 'sc1_sc2_taskConds.txt' file, instruct is not coded as a
+        % task/condition name. So I will have to add that to the list of
+        % names
+        conNames = ['Instruct'; conNames];
+        
+        experiment = sprintf('sc%d', experiment_num);
+        
+        % Setting directories
+        glmSuitDir      = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm));
+        glmSuitGroupDir = fullfile(baseDir, experiment, suitDir, sprintf('glm%d', glm), 'group');
+        dircheck(glmSuitDir);
+        dircheck(glmSuitGroupDir);
+        
+        for s = 1:length(sn)
+            tmp = gifti(fullfile(glmSuitDir, subj_name{sn(s)},...
+                sprintf('%s.Cereb.%s.wcon-%s.func.gii', subj_name{sn(s)}, experiment, con_vs)));
+            G(:, :, s) = tmp.cdata;
+        end % sn
+        groupG = nanmean(G, 3); % calculating group average for each condition/task
+        
+        G = surf_makeFuncGifti(groupG, 'anatomicalStruct', 'Cerebellum', 'columnNames', conNames);
+        
+        save(G, fullfile(glmSuitGroupDir, sprintf('Cereb.group.%s.wcon-%s.func.gii', experiment, con_vs)));
+        fprintf('******************** %s group average for contrastsvs %s is created! ********************\n\n', type, con_vs);
     case 'SUIT:mdtb:groupmap_con_task'
         % creates group map for task contrasts
         % Example: sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_task', 'sn', [3]);
@@ -1925,9 +2095,9 @@ switch what
         % Example:sc1_sc2_mdtb('SUIT:mdtb:groupmap_con_groupGiftis')
         
         experiment_num = 1;
-        glm            = 8;
+        glm            = 7;
         con_vs         = 'average_4';
-        which          = 'task';
+        which          = 'cond';
         replaceNaN     = 1;           %% replacing NaNs
 
         vararginoptions(varargin, {'experiment_num', 'glm', 'con_vs', 'which', 'replaceNaN'});
@@ -1957,6 +2127,7 @@ switch what
             infilenames{cc}   = fullfile(glmSuitGroupDir,sprintf('Cereb.group.con_%s-%s.func.gii', conNames{cc}, con_vs));
             columnName{cc} = sprintf('%s-%s', conNames{cc}, con_vs);
         end % cc (condition)
+        dircheck(glmSuitGroupDir)
         cd(fullfile(glmSuitGroupDir));
         outfilename = sprintf('Cereb.group.con_%s-%s.func.gii', which, con_vs);
         surf_groupGiftis(infilenames, 'outfilenames', {outfilename}, 'outcolnames', columnName, 'replaceNaNs', replaceNaN);
