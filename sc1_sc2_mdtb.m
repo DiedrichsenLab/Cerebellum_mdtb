@@ -18,9 +18,10 @@ numTRs    = 601; % number of scans per run
 
 %%% setting path for the working directories
 %  baseDir = '/Volumes/MotorControl/data/super_cerebellum_new/';
-baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
+% baseDir = '/Users/ladan/Documents/Project-Cerebellum/Cerebellum_Data';
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 % baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
+baseDir = '/Volumes/diedrichsen_data$/data/super_cerebellum';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -2499,7 +2500,7 @@ switch what
                         fprintf('%s coppied to the server\n', sourceFolder);
                     else
                         fprintf('copying %s to the server failed\n', sourceFolder);
-                        fprintf('%s\n', message{s});
+                        % fprintf('%s\n', message{s});
                     end
                 end % sn
             case 'region_cortex'
