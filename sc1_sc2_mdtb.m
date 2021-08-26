@@ -1071,13 +1071,12 @@ switch what
         end % sn 
 
         
-    case 'SURF:mdtb:UW_beta'
-        % gets the betas on the surface and univariately prewhiten them. It
-        % saves the beta values for the cortex in a new structure that also
-        % has the task info (using SPM_info.mat to get the task info).
-        % Example: sc1_sc2_mdtb('SURF:mdtb:UW_beta', 'experiment_num', 2, 'glm', 7)
+    case 'SURF:mdtb:map_beta'
+        % Maps the betas and the ResMS for a specific GLM to the cortex
+        % saves the beta values as gifti files - in the 
+        % sc1/surfaceWB/glmX/sxx
         sn             = returnSubjs;
-        experiment_num = 2;
+        experiment_num = 1;
         glm            = 7;
         atlas_res      = 32;
         
@@ -1087,21 +1086,17 @@ switch what
         
         % setting glm and surfaceWB directory
         glmDir      = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-        glmSurfDir  = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm)); dircheck(glmSurfDir);
-        encodingDir = fullfile(baseDir, experiment, encodeDir, sprintf('glm%d', glm));   
         
         numRuns = length(runLst);
         
         for s = sn
             Y = [];
             fprintf('******************** start mapping betas to surface for %s ********************\n', subj_name{s});
-            subjSurfDir = fullfile(baseDir, 'sc1', wbDir, 'data', subj_name{s});
-            dircheck(fullfile(glmSurfDir, subj_name{s})); %% directory to save the contrast maps
-            
-            glmSubjDir    = fullfile(glmDir, subj_name{s});
-            encodeSubjDir = fullfile(encodingDir, subj_name{s});
-            
+            subjSurfDir = fullfile(baseDir, 'sc1', wbDir, subj_name{s});  % Surface subject dir for anatomical information 
+            subjSurfGLMDir = fullfile(baseDir, 'sc1', wbDir, sprintf('glm%d',glm),subj_name{s}); % Surface subject dir for functional data for a specific GLM 
+            dircheck(subjSurfGLMDir); 
             T = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            
             for h = 1:2 % two hemispheres
                 white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
                 pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
@@ -1112,98 +1107,42 @@ switch what
                 fprintf('******************** mapping ResMS to surface for %s hemi %s ********************\n', hemI{h}, subj_name{s});
                 ResMsImage{1}    = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
                 ResMs_colName{1} = 'ResMS.nii';
-                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}, experiment));
-                
-                G_ResMs = surf_vol2surf(C1.vertices,C2.vertices,ResMsImage,'column_names', ResMs_colName, ...
-                        'anatomicalStruct',hemName{h});
-%                 save(G_ResMs, ResMs_outfile);
-                
-                % start mapping betas to surface
-                filenames = dir(fullfile(glmSubjDir,'beta*'));
-                outfile   = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.beta.func.gii', ...
-                    subj_name{s}, hemI{h}, experiment));
-                
-                for t = 1:length(filenames)
-                    fileList{t}    = {filenames(t).name};
-                    column_name{t} = {filenames(t).name};
-                end % t
-                for f=1:length(fileList)
-                    images(f) = spm_vol(fullfile(glmSubjDir,fileList{f}));
-                end % f
-                G = surf_vol2surf(C1.vertices,C2.vertices,images,'column_names', column_name, ...
-                        'anatomicalStruct',hemName{h});
-                save(G, outfile);
-
-                % write out new structure ('Y_info')
-                Y.data = bsxfun(@rdivide, G.cdata', sqrt(G_ResMs.cdata')); % UW betas
-                Y.data(end-numRuns+1:end, :)= []; % deleting the intercepts;
-                Y = addstruct(Y, T);
-%                 Y.nonZeroInd=B.index';
-                
-                outName = fullfile(encodeSubjDir,sprintf('Y_info_glm%d_cortex_%s.mat',glm,hemI{h}));
-                save(outName,'Y','-v7.3');
-                fprintf('cortical vertices: (Y data) computed for %s \n',subj_name{s});
-                clear B R Y
-            end % hemi
-        end % sn
-    case 'SURF:mdtb:map_beta'
-        % maps betas and ResMS to surface
-        % Example: sc1_sc2_mdtb('SURF:mdtb:map_beta', 'sn', 2, 'experiment_num', 1, 'glm', 8)
-        
-        sn    = returnSubjs;     
-        experiment_num = 1;
-        glm  = 8;
-        atlas_res = 32;
-        
-        vararginoptions(varargin,{'sn','experiment_num', 'glm', 'atlas_res'});
-        
-        experiment = sprintf('sc%d', experiment_num);
-%         D=dload(fullfile(baseDir,'sc1_sc2_taskConds_GLM.txt'));
-        
-        % setting directories
-        glmDir     = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-        glmSurfDir = fullfile(baseDir, experiment, wbDir, sprintf('glm%d', glm));
-        dircheck(glmSurfDir);
-
-        for s=sn
-            for h=1:2
-                subjSurfDir = fullfile(baseDir, 'sc1', wbDir, 'data', subj_name{s});
-                white   = fullfile(subjSurfDir,sprintf('%s.%s.white.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
-                pial    = fullfile(subjSurfDir,sprintf('%s.%s.pial.%dk.surf.gii',subj_name{s},hemI{h}, atlas_res));
-                C1=gifti(white);
-                C2=gifti(pial);
-                
-                glmSubjDir =fullfile(glmDir,subj_name{s});
-                T=load(fullfile(glmDir, subj_name{s},'SPM_info.mat'));
-                filenames={};
-                for i=1:length(T.run) + 16 % also including the intercepts
-                    filenames{i} = fullfile(glmSubjDir,sprintf('beta_%4.4d.nii',i));
-                    wcolNames{i}  = sprintf('wbeta_%4.4d',i);
-                    colNames{i}  = sprintf('beta_%4.4d',i);
-                end % i 
-%                 filenames{i+1} = fullfile(glmDir,'ResMS.nii');
-                outfile = fullfile(glmSurfDir, subj_name{s},sprintf('%s.%s.%s.beta.func.gii',subj_name{s},hemI{h},experiment));
-
-                G=surf_vol2surf(C1.vertices,C2.vertices,filenames,'column_names',colNames,'anatomicalStruct',hemName{h});
-                save(G,outfile);
-                
-                ResMsImage{1}    = fullfile(glmDir, subj_name{s}, 'ResMS.nii');
-                ResMs_colName{1} = 'ResMS.nii';
-                ResMs_outfile    = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}, experiment));
+                ResMs_outfile    = fullfile(subjSurfGLMDir, sprintf('%s.%s.%s.ResMS.func.gii', subj_name{s}, hemI{h}, experiment));
                 
                 G_ResMs = surf_vol2surf(C1.vertices,C2.vertices,ResMsImage,'column_names', ResMs_colName, ...
                         'anatomicalStruct',hemName{h});
                 save(G_ResMs, ResMs_outfile);
                 
+                % Start mapping betas to surface
+                filenames = dir(fullfile(glmDir,subj_name{s},'beta*'));
+                outfile   = fullfile(subjSurfGLMDir, sprintf('%s.%s.%s.beta.func.gii',subj_name{s}, hemI{h}, experiment));
                 
-                wcdata = bsxfun(@rdivide, G.cdata, G_ResMs.cdata);
-                wG=surf_makeFuncGifti(wcdata,'columnNames',wcolNames,'anatomicalStruct',hemName{h});
-                woutfile = fullfile(glmSurfDir, subj_name{s}, sprintf('%s.%s.%s.wbeta.func.gii', subj_name{s}, hemI{h}, experiment));
-                save(wG, woutfile);
+                % Get all the beta files 
+                for t = 1:length(filenames)
+                    fileList{t}    = {filenames(t).name};
+                    column_name{t} = {filenames(t).name};
+                end 
+                for f=1:length(fileList)
+                    images(f) = spm_vol(fullfile(glmDir,subj_name{s},fileList{f}));
+                end 
+                
+                % Map to the surface and save 
+                G = surf_vol2surf(C1.vertices,C2.vertices,images,'column_names', column_name, ...
+                        'anatomicalStruct',hemName{h});
+                save(G, outfile);
 
-                fprintf('mapped %s %s %s \n',subj_name{s},hemI{h},experiment);
-            end % h (hmei)
-        end % s (sn)
+                % write out new structure ('Y_info')
+                % Y.data = bsxfun(@rdivide, G.cdata', sqrt(G_ResMs.cdata')); % UW betas
+                % Y.data(end-numRuns+1:end, :)= []; % deleting the intercepts;
+                % Y = addstruct(Y, T);
+                % Y.nonZeroInd=B.index';
+                
+                % outName = fullfile(encodeSubjDir,sprintf('Y_info_glm%d_cortex_%s.mat',glm,hemI{h}));
+                % save(outName,'Y','-v7.3');
+                % fprintf('cortical vertices: (Y data) computed for %s \n',subj_name{s});
+                % clear B R Y
+            end % hemi
+        end % sn
     case 'SURF:mdtb:map_con'
         % projects individual contrast map volume files for the conditions
         % to the workbench surface.
