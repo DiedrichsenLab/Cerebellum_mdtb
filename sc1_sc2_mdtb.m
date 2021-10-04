@@ -22,6 +22,7 @@ numTRs    = 601; % number of scans per run
 % baseDir = '/home/ladan/Documents/Data/Cerebellum-MDTB';
 % baseDir = '/Users/jdiedrichsen/Data/super_cerebellum_new';
 baseDir = '/Volumes/diedrichsen_data$/data/super_cerebellum';
+baseDir = '/srv/diedrichsen/data/super_cerebellum/';
 
 %%% setting directory names
 behavDir     ='/data';                  %% behavioral data directory.
@@ -1039,13 +1040,12 @@ switch what
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
-        %%% setting directory paths I need
-        glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
-        
         for s = sn
+            glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm),subj_name{s});
+ 
             fprintf('******************** calculating F contrasts for %s ********************\n', subj_name{s});
-            load(fullfile(glmDir, subj_name{s}, 'SPM.mat'))
-            T    = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
+            load(fullfile(glmDir, 'SPM.mat'))
+            T    = load(fullfile(glmDir, 'SPM_info.mat'));
             
             % F contrast across all tasks
             numTasks = max(T.task); 
@@ -1056,10 +1056,49 @@ switch what
             end
             
             SPM.xCon(1) = spm_FcUtil('Set','AllTask', 'F', 'c',con',SPM.xX.xKXs);
+            SPM.swd = glmDir;
             spm_contrasts(SPM,1:length(SPM.xCon));
         end % sn 
-
+    case 'GLM:mdtb:contrast_F_summary'
+            % Calculating contrast images for overall F-contrast between
+        % tasks / conditions         
+        sn             = returnSubjs;    %% list of subjects
+        glm            = 8;              %% The glm number :)
+        experiment_num = 1;
+        D=[]; 
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num'})
         
+        experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
+        
+        for s = sn
+            glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm),subj_name{s});
+            regDir = fullfile(baseDir,'sc1','RegionOfInterest','data',subj_name{s});
+            
+            fprintf('******************** doing calc %s ********************\n', subj_name{s});
+            R{1}=region('image',fullfile(regDir,'cortical_mask_grey_corr.nii'),0.5);
+            R{2}=region('image',fullfile(regDir,'regions_cerebellum_suit.nii'),0.5);
+            R = region_calcregions(R); 
+            
+            V= spm_vol(fullfile(glmDir,'spmF_0001.nii')); 
+            data = region_getdata(V,R); 
+            T.sn =s;
+            T.numzero = [sum(data{1}==0), sum(data{2}==0)];
+            data{1}=data{1}(data{1}>0);
+            data{2}=data{2}(data{2}>0);
+            T.avrgF = [mean(data{1}),mean(data{2})]; 
+            T.prcF = [prctile(data{1},95),prctile(data{2},95)];
+            D=addstruct(D,T); 
+        end % sn 
+        subplot(1,2,1);
+        myboxplot([],D.avrgF)
+        set(gca,'Ylim',[0 max(D.avrgF(:))+0.2]);
+        
+        subplot(1,2,2);
+        myboxplot([],D.percF)
+        set(gca,'Ylim',[0 25])
+        drawline(1,'dir','horz')
+
+        varargout={D};  
     case 'SURF:mdtb:map_beta'
         % Maps the betas and the ResMS for a specific GLM to the cortex
         % saves the beta values as gifti files - in the 
