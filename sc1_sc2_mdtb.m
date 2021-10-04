@@ -1029,24 +1029,13 @@ switch what
             end % i (contrasts)
         end % sn        
     case 'GLM:mdtb:contrast_F'
-        %%% Calculating contrast images.
-        % 'SPM_light' is created in this step (xVi is removed as it slows
-        % down code for FAST GLM).
-        % This case is written so that it works with both GLM 7 and GLM 8.
-        % Reminder: GLM 7 was written with each condition as a separate
-        % regressor and a regressor for each of the instructions. GLM 8 was
-        % written with each task modeled as a 30 sec block and instructions
-        % modeled as a separate regressor.
-        % Example1: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [17, 18], 'glm', 8, 'which', 'task')
-        % Example2: sc1_sc2_mdtb('GLM:mdtb:contrast', 'sn', [3], 'glm', 72, 'which', 'cond')
-        
+        % Calculating contrast images for overall F-contrast between
+        % tasks / conditions         
         sn             = returnSubjs;    %% list of subjects
         glm            = 8;              %% The glm number :)
         experiment_num = 1;
-        con_vs         = 'average_4'; %% set it to 'rest' or 'average' (depending on the contrast you want)
-        which          = 'cond';      %% it can be set to either cond or task. set it to 'task for GLM_8 and 'cond' for GLM_7
         
-        vararginoptions(varargin, {'sn', 'glm', 'experiment_num', 'con_vs', 'which'})
+        vararginoptions(varargin, {'sn', 'glm', 'experiment_num'})
         
         experiment = sprintf('sc%d', experiment_num); %% experiment number is converted to 'sc1' or 'sc2'
         
@@ -1054,11 +1043,11 @@ switch what
         glmDir = fullfile(baseDir, experiment, sprintf('GLM_firstlevel_%d', glm));
         
         for s = sn
-            fprintf('******************** calculating contrasts for %s ********************\n', subj_name{s});
+            fprintf('******************** calculating F contrasts for %s ********************\n', subj_name{s});
             load(fullfile(glmDir, subj_name{s}, 'SPM.mat'))
             T    = load(fullfile(glmDir, subj_name{s}, 'SPM_info.mat'));
             
-            % t contrast for tasks
+            % F contrast across all tasks
             numTasks = max(T.task); 
             con = zeros(numTasks,size(SPM.xX.X,2));
             for i=1:numTasks
