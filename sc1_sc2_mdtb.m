@@ -1090,14 +1090,16 @@ switch what
             D=addstruct(D,T); 
         end % sn 
         subplot(1,2,1);
-        myboxplot([],D.avrgF)
+        myboxplot([],D.avrgF); 
+        title('Average F-value');
         set(gca,'Ylim',[0 max(D.avrgF(:))+0.2]);
+        drawline(1,'dir','horz')
         
         subplot(1,2,2);
         myboxplot([],D.percF)
-        set(gca,'Ylim',[0 25])
-        drawline(1,'dir','horz')
-
+        set(gca,'Ylim',[0 max(D.percF(:)+1])
+        title('95% F-value');
+        drawline(finv(0.95,16,1000),'dir','horz')
         varargout={D};  
     case 'SURF:mdtb:map_beta'
         % Maps the betas and the ResMS for a specific GLM to the cortex
